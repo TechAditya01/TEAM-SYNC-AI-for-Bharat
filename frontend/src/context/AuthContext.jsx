@@ -5,10 +5,13 @@ const AuthContext = React.createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = React.useState(null);
+  const [loading] = React.useState(false);
 
-  const login = async (email) => {
-    const user = { uid: 'demo-user', email };
+  const login = async (email, _password, role) => {
+    const selectedRole = role || localStorage.getItem('pendingUserRole') || 'citizen';
+    const user = { uid: 'demo-user', email, role: selectedRole };
     setCurrentUser(user);
+    localStorage.setItem('pendingUserRole', selectedRole);
     return { user };
   };
 
@@ -24,7 +27,7 @@ export const AuthProvider = ({ children }) => {
       email: payload.email,
       role: payload.role || 'citizen',
     };
-    setCurrentUser(user);
+    localStorage.setItem('pendingUserRole', user.role);
     return { uid: user.uid };
   };
 
@@ -39,6 +42,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     currentUser,
+    loading,
     isAuthenticated: Boolean(currentUser),
     role: currentUser?.role || 'citizen',
     login,

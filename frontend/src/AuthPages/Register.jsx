@@ -96,32 +96,13 @@ export default function Register() {
                 department: formData.department
             });
 
-            // Request WhatsApp OTP immediately after registration
-            try {
-                if (userType === 'citizen' && formData.mobile) {
-                    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
-                    await fetch(`${API_BASE_URL}/api/auth/send-otp`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ type: 'whatsapp', contact: formData.mobile })
-                    });
-                    toast.success(t('authOtpSentWhatsapp'));
-                }
-            } catch (otpErr) {
-                console.error("OTP Send Error:", otpErr);
-                // Don't block registration success, just warn
-                toast.error(t('authOtpAutoSendFailed'));
-            }
-
             toast.success(`${t('authUserRegistered')} ${formData.firstName}.`);
 
             // Small delay to let user see the success message
             setTimeout(() => {
-                navigate('/verify-otp', {
+                navigate('/login', {
                     state: {
                         email: formData.email,
-                        mobile: formData.mobile,
-                        address: userType === 'citizen' ? address : null,
                         userType: userType,
                         uid: result.uid
                     }

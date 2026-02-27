@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/LandingPages/Navbar';
 import Footer from '../components/LandingPages/Footer';
 // import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -12,6 +12,7 @@ import { useLanguage } from '../context/LanguageContext';
 
 export default function Login() {
     const navigate = useNavigate(); // Moved to top
+    const location = useLocation();
     const { login } = useAuth();
     const { t } = useLanguage();
     const [userType, setUserType] = useState('citizen');
@@ -23,7 +24,11 @@ export default function Login() {
 
     const [isLoading, setIsLoading] = useState(false);
 
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+    React.useEffect(() => {
+        if (location.state?.userType) {
+            setUserType(location.state.userType);
+        }
+    }, [location.state]);
 
     // Note: Auto-redirect removed to allow OTP flow for email logins.
     // We only redirect if User is ALREADY authenticated on page load (clean session check),
@@ -45,23 +50,9 @@ export default function Login() {
             const cleanEmail = email.trim();
             const cleanPassword = password.trim();
 
-            // 1. Verify credentials with Firebase Auth
-            const userCredential = await login(cleanEmail, cleanPassword);
-            const uid = userCredential.user.uid;
-
-            // 2. Credentials matched. Now send OTP to Email.
-            const response = await fetch(`${API_BASE_URL}/api/auth/send-otp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'email', contact: cleanEmail })
-            });
-
-            if (!response.ok) throw new Error(t('authOtpSendFailed'));
-
+            await login(cleanEmail, cleanPassword, userType);
             toast.success(t('authCredentialsVerified'));
-
-            // 3. Navigate to OTP Verification Screen
-            navigate('/verify-otp', { state: { email: cleanEmail, mode: 'login', userType, uid } });
+            navigate(userType === 'admin' ? '/admin/dashboard' : '/civic/dashboard');
 
         } catch (error) {
             console.error(error);
