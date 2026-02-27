@@ -3,13 +3,13 @@ import React from 'react';
 
 const LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
-  { code: 'hi', label: 'हिन्दी (Hindi)' },
-  { code: 'pa', label: 'ਪੰਜਾਬੀ (Punjabi)' },
-  { code: 'bn', label: 'বাংলা (Bengali)' },
-  { code: 'mr', label: 'मराठी (Marathi)' },
-  { code: 'te', label: 'తెలుగు (Telugu)' },
-  { code: 'ta', label: 'தமிழ் (Tamil)' },
-  { code: 'ml', label: 'മലയാളം (Malayalam)' },
+  { code: 'hi', label: 'हिन्दी' },
+  { code: 'pa', label: 'ਪੰਜਾਬੀ' },
+  { code: 'bn', label: 'বাংলা' },
+  { code: 'mr', label: 'मराठी' },
+  { code: 'te', label: 'తెలుగు' },
+  { code: 'ta', label: 'தமிழ்' },
+  { code: 'ml', label: 'മലയാളം' },
 ];
 
 const TRANSLATIONS = {
