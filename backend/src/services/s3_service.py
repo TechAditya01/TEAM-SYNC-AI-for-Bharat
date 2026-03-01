@@ -1,33 +1,26 @@
-import json
 import boto3
 import os
-from src.utils.response import build_response
+from botocore.exceptions import ClientError
 
-cognito = boto3.client('cognito-idp')
-CLIENT_ID = os.environ.get('COGNITO_CLIENT_ID')
+s3_client = boto3.client(
+    "s3",
+    region_name=os.getenv("AWS_DEFAULT_REGION", "ap-south-1"),
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+)
 
-def lambda_handler(event, context):
+BUCKET_NAME = os.getenv("AWS_S3_BUCKET_NAME")
+
+def get_presigned_url(file_name, file_type):
     try:
-        body = json.loads(event.get('body', '{}'))
-        email = body.get('email')
-        code = body.get('code')
-
-        if not email or not code:
-            return build_response(400, {"error": "Email and code are required."})
-
-        # Submit the OTP to AWS Cognito to confirm the user account
-        cognito.confirm_sign_up(
-            ClientId=CLIENT_ID,
-            Username=email,
-            ConfirmationCode=code
+        response = s3_client.generate_presigned_post(
+            Bucket=BUCKET_NAME,
+            Key=file_name,
+            Fields={"Content-Type": file_type},
+            Conditions=[{"Content-Type": file_type}],
+            ExpiresIn=3600
         )
-        
-        return build_response(200, {"message": "Account verified successfully!"})
-
-    except cognito.exceptions.CodeMismatchException:
-        return build_response(400, {"error": "Invalid verification code."})
-    except cognito.exceptions.ExpiredCodeException:
-        return build_response(400, {"error": "Verification code has expired. Request a new one."})
-    except Exception as e:
-        print(f"Verify Error: {e}")
-        return build_response(500, {"error": str(e)})
+        return response
+    except ClientError as e:
+        print(f"Error generating presigned URL: {e}")
+        return None

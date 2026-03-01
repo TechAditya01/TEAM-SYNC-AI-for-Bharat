@@ -24,8 +24,6 @@ class SaveUserRequest(BaseModel):
 @router.post("/save-user")
 def save_user(data: SaveUserRequest):
     try:
-        print("✅ SAVE USER DATA:", data.dict())
-
         create_user(data.sub, data.email, data.role)
 
         if data.role == "citizen":
@@ -49,10 +47,7 @@ def save_user(data: SaveUserRequest):
                 department=data.department,
             )
 
-        print("✅ DYNAMODB SAVE SUCCESS")
-
         return {"status": "saved"}
 
     except Exception as e:
-        print("❌ SAVE USER ERROR:", str(e))   # ← THIS WILL SHOW REAL ERROR
         raise HTTPException(status_code=500, detail=str(e))

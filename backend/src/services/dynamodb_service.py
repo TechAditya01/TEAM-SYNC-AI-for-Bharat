@@ -7,8 +7,6 @@ load_dotenv()
 
 AWS_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
 
-print("AWS REGION:", AWS_REGION)
-
 dynamodb = boto3.resource(
     "dynamodb",
     region_name=AWS_REGION,
@@ -16,11 +14,11 @@ dynamodb = boto3.resource(
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
 )
 
-# ✅ MATCH AWS TABLE NAMES EXACTLY
 users_table = dynamodb.Table("Users")
 citizens_table = dynamodb.Table("Citizens")
 admins_table = dynamodb.Table("Admin")
-alerts_table = dynamodb.Table("CitizenContact")
+contact_table = dynamodb.Table("CitizenContact")
+reports_table = dynamodb.Table("Reports")
 
 
 # ================= USERS =================
@@ -33,6 +31,11 @@ def create_user(user_id, email, role):
             "createdAt": datetime.utcnow().isoformat(),
         }
     )
+
+
+def get_user(user_id):
+    res = users_table.get_item(Key={"userId": user_id})
+    return res.get("Item")
 
 
 # ================= CITIZEN =================
@@ -58,8 +61,7 @@ def create_citizen(
         }
     )
 
-    # contact table
-    alerts_table.put_item(
+    contact_table.put_item(
         Item={
             "mobile": mobile,
             "firstName": first_name,
@@ -67,6 +69,20 @@ def create_citizen(
             "city": city,
         }
     )
+
+
+def get_citizen_reports(citizen_id):
+    res = reports_table.scan(
+        FilterExpression="#cid = :cid",
+        ExpressionAttributeNames={"#cid": "citizenId"},
+        ExpressionAttributeValues={":cid": citizen_id},
+    )
+    return res.get("Items", [])
+
+
+def get_citizen(citizen_id):
+    res = citizens_table.get_item(Key={"citizenId": citizen_id})
+    return res.get("Item")
 
 
 # ================= ADMIN =================
@@ -90,3 +106,28 @@ def create_admin(
             "createdAt": datetime.utcnow().isoformat(),
         }
     )
+
+
+def get_admin(admin_id):
+    res = admins_table.get_item(Key={"adminId": admin_id})
+    return res.get("Item")
+
+
+def get_all_reports():
+    res = reports_table.scan()
+    return res.get("Items", [])
+
+
+def create_report(data):
+    report_id = f"rep-{int(datetime.utcnow().timestamp())}"
+    data["reportId"] = report_id
+    data["createdAt"] = datetime.utcnow().isoformat()
+    data["status"] = "Pending"
+    reports_table.put_item(Item=data)
+    return report_id
+
+
+def escalate_old_reports():
+    # Logic for escalation (e.g. if > 24h pending)
+    # This is a stub for future implementation
+    return {"status": "Escalation process triggered"}
