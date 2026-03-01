@@ -11,16 +11,13 @@ const __dirname = path.dirname(__filename)
 // https://vite.dev/config/
 export default defineConfig({
   resolve: {
-    alias: {
-      'firebase/app': path.resolve(__dirname, 'src/mocks/firebase/app.js'),
-      'firebase/database': path.resolve(__dirname, 'src/mocks/firebase/database.js'),
-      'framer-motion': path.resolve(__dirname, 'src/mocks/framer-motion.js'),
-      '@react-google-maps/api': path.resolve(__dirname, 'src/mocks/react-google-maps-api.js'),
-      recharts: path.resolve(__dirname, 'src/mocks/recharts.js'),
-    },
+    // Add custom aliases or extensions here if needed
   },
-  plugins: [react(),
-  tailwindcss()
-
+  define: {
+    global: 'window',
+  },
+  plugins: [
+    react(),
+    tailwindcss(),
   ],
-})
+});

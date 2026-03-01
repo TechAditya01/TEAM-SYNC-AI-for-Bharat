@@ -67,11 +67,13 @@ export default function Navbar() {
 
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
-                    <img
-                        src={logo}
-                        alt={t('brandLogoAlt')}
-                        className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover shrink-0"
-                    />
+                    <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-white ring-1 ring-slate-200 dark:ring-slate-700 shrink-0">
+                        <img
+                            src={logo}
+                            alt={t('brandLogoAlt')}
+                            className="w-full h-full object-cover scale-125"
+                        />
+                    </div>
                     <div className="min-w-0">
                         <h1 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white leading-tight truncate">
                             {t('brandName')}
@@ -156,11 +158,13 @@ export default function Navbar() {
 
                     <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 min-w-0">
-                            <img
-                                src={logo}
-                                alt={t('brandLogoAlt')}
-                                className="w-9 h-9 rounded-full object-cover shrink-0"
-                            />
+                            <div className="w-9 h-9 rounded-full overflow-hidden bg-white ring-1 ring-slate-200 dark:ring-slate-700 shrink-0">
+                                <img
+                                    src={logo}
+                                    alt={t('brandLogoAlt')}
+                                    className="w-full h-full object-cover scale-125"
+                                />
+                            </div>
                             <div className="min-w-0">
                                 <h2 className="text-sm font-semibold truncate text-slate-900 dark:text-white">{t('brandName')}</h2>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{t('civicTagline')}</p>

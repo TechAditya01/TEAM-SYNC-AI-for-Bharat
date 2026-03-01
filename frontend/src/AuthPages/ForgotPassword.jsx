@@ -1,30 +1,86 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/LandingPages/Navbar';
 import Footer from '../components/LandingPages/Footer';
-// import { sendPasswordResetEmail } from 'firebase/auth'; // Removed
-// import { auth } from '../../services/firebase'; // Removed
-import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function ForgotPassword() {
-    const [isLoading, setIsLoading] = useState(false);
-    const [userType, setUserType] = useState('citizen');
-    const [email, setEmail] = useState('');
-
-    const { resetPassword } = useAuth(); // Mock hook
+    const navigate = useNavigate();
     const { t } = useLanguage();
 
-    const handleReset = async (e) => {
+    const [isLoading, setIsLoading] = useState(false);
+    const [userType, setUserType] = useState('citizen');
+
+    // AWS Cognito Two-Step State
+    const [step, setStep] = useState(1); // 1 = Request Code, 2 = Set New Password
+    const [email, setEmail] = useState('');
+    const [code, setCode] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+
+    // --- STEP 1: Request the Verification Code ---
+    const handleRequestCode = async (e) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await resetPassword(email);
-            toast.success(t('authResetLinkSent'));
+            const API_URL = import.meta.env.VITE_AWS_API_GATEWAY_URL || 'https://YOUR_API_GATEWAY_URL.execute-api.ap-south-1.amazonaws.com/prod';
+
+            const response = await fetch(`${API_URL}/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim() })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error || 'Failed to request reset.');
+
+            toast.success(t('authResetLinkSent') || "Verification code sent to your email!");
+            setStep(2); // Move to Step 2 in the UI
+
         } catch (error) {
             console.error(error);
             toast.error(error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- STEP 2: Confirm Code and Set New Password ---
+    const handleSetNewPassword = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        try {
+            const API_URL = import.meta.env.VITE_AWS_API_GATEWAY_URL || 'https://YOUR_API_GATEWAY_URL.execute-api.ap-south-1.amazonaws.com/prod';
+
+            const response = await fetch(`${API_URL}/confirm-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    code: code.trim(),
+                    new_password: newPassword.trim()
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error || 'Failed to reset password.');
+
+            toast.success("Password reset successfully! You can now log in.");
+
+            // Redirect back to login with the email pre-filled
+            setTimeout(() => {
+                navigate('/login', { state: { email: email, userType: userType } });
+            }, 1500);
+
+        } catch (error) {
+            console.error(error);
+            if (error.message.includes("CodeMismatchException")) {
+                toast.error("Invalid verification code. Please try again.");
+            } else {
+                toast.error(error.message);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -88,66 +144,118 @@ export default function ForgotPassword() {
                             <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 flex justify-center items-center gap-2">
                                 <span>{t('brandName')}</span>
                             </h2>
-                            <p className="text-slate-500 dark:text-gray-400 text-sm">{t('authResetYour')} {userType === 'citizen' ? t('authCitizen') : t('authOfficial')} {t('authPasswordLower')}</p>
-                            
+                            <p className="text-slate-500 dark:text-gray-400 text-sm">
+                                {step === 1 ? `${t('authResetYour')} ${userType === 'citizen' ? t('authCitizen') : t('authOfficial')} ${t('authPasswordLower')}` : "Check your email for the verification code."}
+                            </p>
                         </div>
 
-                        {/* Tabs for consistency */}
-                        <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl mb-8 border border-slate-200 dark:border-slate-700/50">
-                            <button
-                                onClick={() => setUserType('citizen')}
-                                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${userType === 'citizen' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'}`}
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                {t('authCitizen')}
-                            </button>
-                            <button
-                                onClick={() => setUserType('admin')}
-                                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${userType === 'admin' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'}`}
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                                {t('authOfficial')}
-                            </button>
-                        </div>
+                        {/* Tabs - Only show on Step 1 */}
+                        {step === 1 && (
+                            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl mb-8 border border-slate-200 dark:border-slate-700/50">
+                                <button
+                                    onClick={() => setUserType('citizen')}
+                                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${userType === 'citizen' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'}`}
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                    {t('authCitizen')}
+                                </button>
+                                <button
+                                    onClick={() => setUserType('admin')}
+                                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${userType === 'admin' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'}`}
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                    {t('authOfficial')}
+                                </button>
+                            </div>
+                        )}
 
-                        <form className="space-y-6" onSubmit={handleReset}>
-                            <div className="space-y-2">
-                                <label className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {userType === 'citizen' ? t('authRegisteredEmail') : t('authOfficialIdEmail')}
-                                </label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-gray-500">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        {/* STEP 1 FORM: Email Input */}
+                        {step === 1 && (
+                            <form className="space-y-6" onSubmit={handleRequestCode}>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+                                        {userType === 'citizen' ? t('authRegisteredEmail') : t('authOfficialIdEmail')}
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-gray-500">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                        </div>
+                                        <input
+                                            type="email"
+                                            placeholder={t('authEmailPlaceholderGeneric')}
+                                            className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-lg leading-5 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all sm:text-sm"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            required
+                                        />
                                     </div>
+                                    {userType === 'citizen' && (
+                                        <p className="text-xs text-slate-500">{t('authResetSecurityNote')}</p>
+                                    )}
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-lg shadow-blue-600/30 disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {isLoading ? (
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    ) : (
+                                        t('authSendResetLink')
+                                    )}
+                                </button>
+                            </form>
+                        )}
+
+                        {/* STEP 2 FORM: Verification Code & New Password */}
+                        {step === 2 && (
+                            <form className="space-y-6" onSubmit={handleSetNewPassword}>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Verification Code
+                                    </label>
                                     <input
-                                        type="email"
-                                        placeholder={t('authEmailPlaceholderGeneric')}
-                                        className={`block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-lg leading-5 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all sm:text-sm`}
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        type="text"
+                                        placeholder="Enter the 6-digit code"
+                                        className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg leading-5 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all sm:text-sm"
+                                        value={code}
+                                        onChange={(e) => setCode(e.target.value)}
                                         required
                                     />
                                 </div>
-                                {userType === 'citizen' && (
-                                    <p className="text-xs text-slate-500">{t('authResetSecurityNote')}</p>
-                                )}
-                            </div>
 
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-lg shadow-blue-600/30 disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                {isLoading ? (
-                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                ) : (
-                                    t('authSendResetLink')
-                                )}
-                            </button>
-                        </form>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+                                        New Password
+                                    </label>
+                                    <input
+                                        type="password"
+                                        placeholder="••••••••"
+                                        className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg leading-5 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all sm:text-sm"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        required
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg text-sm font-semibold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-lg shadow-green-600/30 disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {isLoading ? (
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    ) : (
+                                        "Confirm New Password"
+                                    )}
+                                </button>
+
+                                <button type="button" onClick={() => setStep(1)} className="w-full text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                                    Entered the wrong email? Go back.
+                                </button>
+                            </form>
+                        )}
 
                         <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700/50 text-center">
                             <p className="text-slate-500 dark:text-gray-400 text-sm">

@@ -1,64 +1,111 @@
-/* eslint-disable react-refresh/only-export-components */
-import React from 'react';
+import React, { createContext, useContext } from "react";
+import {
+  CognitoUserPool,
+  CognitoUserAttribute
+} from "amazon-cognito-identity-js";
 
-const AuthContext = React.createContext(null);
+const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = React.useState(null);
-  const [loading] = React.useState(false);
-
-  const login = async (email, _password, role) => {
-    const selectedRole = role || localStorage.getItem('pendingUserRole') || 'citizen';
-    const user = { uid: 'demo-user', email, role: selectedRole };
-    setCurrentUser(user);
-    localStorage.setItem('pendingUserRole', selectedRole);
-    return { user };
-  };
-
-  const googleLogin = async () => {
-    const user = { uid: 'demo-google-user', email: 'demo@gmail.com' };
-    setCurrentUser(user);
-    return { user };
-  };
-
-  const register = async (payload) => {
-    const user = {
-      uid: 'demo-user',
-      email: payload.email,
-      role: payload.role || 'citizen',
-    };
-    localStorage.setItem('pendingUserRole', user.role);
-    return { uid: user.uid };
-  };
-
-  const resetPassword = async () => true;
-
-  const loginWithToken = async () => {
-    if (!currentUser) {
-      setCurrentUser({ uid: 'demo-user', email: 'demo@example.com' });
-    }
-    return true;
-  };
-
-  const value = {
-    currentUser,
-    loading,
-    isAuthenticated: Boolean(currentUser),
-    role: currentUser?.role || 'citizen',
-    login,
-    googleLogin,
-    register,
-    resetPassword,
-    loginWithToken,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+// Cognito config
+const poolData = {
+  UserPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
+  ClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
 };
 
+const userPool = new CognitoUserPool(poolData);
+
+export function AuthProvider({ children }) {
+
+  // ================= REGISTER =================
+  const register = async (
+    email,
+    password,
+    fullName,
+    phone,
+    role,
+    extraData = {}
+  ) => {
+    return new Promise((resolve, reject) => {
+
+      const attributes = [];
+
+      attributes.push(
+        new CognitoUserAttribute({
+          Name: "name",
+          Value: fullName,
+        })
+      );
+
+      const formattedPhone = phone.startsWith("+")
+        ? phone
+        : `+91${phone}`;
+
+      attributes.push(
+        new CognitoUserAttribute({
+          Name: "phone_number",
+          Value: formattedPhone,
+        })
+      );
+
+      userPool.signUp(
+        email,
+        password,
+        attributes,
+        null,
+        async (err, result) => {
+          if (err) {
+            console.error("Cognito signup error:", err);
+            reject(err);
+            return;
+          }
+
+          try {
+            const sub = result.userSub;
+
+            // 🔹 SAVE TO BACKEND → DynamoDB
+           await fetch("http://localhost:8000/api/save-user", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    sub,
+    email,
+    role,
+    firstName:
+      extraData.firstName || fullName.split(" ")[0],
+    lastName:
+      extraData.lastName || fullName.split(" ")[1] || "",
+    mobile: formattedPhone,
+    city: extraData.city || null,
+    address: extraData.address || null,
+    department: extraData.department || null,
+  }),
+});
+
+            resolve(result.user);
+
+          } catch (e) {
+            console.error("Save user error:", e);
+            reject(e);
+          }
+        }
+      );
+    });
+  };
+
+  return (
+    <AuthContext.Provider value={{ register }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// ✅ MUST EXPORT
 export const useAuth = () => {
-  const context = React.useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used inside AuthProvider");
   }
-  return context;
+  return ctx;
 };

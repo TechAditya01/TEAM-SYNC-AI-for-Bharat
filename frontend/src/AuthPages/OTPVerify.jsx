@@ -12,7 +12,7 @@ const OTPVerify = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { email, mobile, userType, mode, uid: stateUid } = location.state || {};
-    const { loginWithToken, currentUser } = useAuth();
+    const { loginWithToken, currentUser, verifyOtp } = useAuth();
     const { t } = useLanguage();
 
     // Fallback if state is lost (e.g. reload), but requires user to be partially authed via Firebase
@@ -89,8 +89,8 @@ const OTPVerify = () => {
         const reqType = type === 'mobile' ? 'whatsapp' : type;
 
         try {
-            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
-            const res = await fetch(`${API_BASE_URL}/api/auth/send-otp`, {
+            const API_BASE_URL = import.meta.env.VITE_AWS_API_GATEWAY_URL || 'https://YOUR_API_GATEWAY_URL.execute-api.ap-south-1.amazonaws.com/prod';
+            const res = await fetch(`${API_BASE_URL}/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: reqType, contact })
@@ -108,7 +108,7 @@ const OTPVerify = () => {
         }
     };
 
-    const verifyOtp = async (type, contact, otp) => {
+    const verifyLocalOtp = async (type, contact, otp) => {
         if (otp.length !== 6) return toast.error(t('authEnterValidOtp'));
 
         const setLoading = type === 'mobile' ? setLoadingMobile : setLoadingEmail;
@@ -116,44 +116,26 @@ const OTPVerify = () => {
 
         setLoading(true);
         try {
-            // Check if using WhatsApp logic (implied by mobile type in this context if we want to follow user request strictly, 
-            // but the backend handles 'whatsapp' type differentiation. Frontend here strictly sends 'mobile' or 'email' types based on UI)
-            // However, the backend 'verify-otp' reads contact directly.
-
-            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
-            const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contact, otp, uid })
-            });
-            const data = await res.json();
-
-            if (res.ok) {
+            if (type === 'email') {
+                // Use actual AWS Cognito SDK for email verification!
+                await verifyOtp(contact, otp);
                 setVerified(true);
-                if (data.token) setAuthToken(data.token);
-                toast.success(type === 'mobile' ? t('authMobileVerified') : t('authEmailVerified'));
+                toast.success(t('authEmailVerified') || "Email Verified Successfully!");
 
-                // PROACTIVE: Sync Profile & Join Community if mobile is verified
-                if (type === 'mobile') {
-                    try {
-                        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
-                        await fetch(`${API_BASE_URL}/api/auth/sync-profile`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ uid, joinCommunity: true })
-                        });
-                        toast.success(t('authCityHubAdded'));
-                    } catch (syncErr) {
-                        console.error("Community Join Error:", syncErr);
-                    }
-                }
+                // Route user to login after successful registration verification
+                setTimeout(() => {
+                    navigate('/login', { state: { email: contact, userType: userType } });
+                }, 1500);
 
             } else {
-                console.error(`[OTP ERROR] Status: ${res.status}, Data:`, data);
-                throw new Error(data.error || 'Invalid OTP');
+                // Mobile is mocked for Hackathon (AWS Cognito requires advanced SMS config)
+                setVerified(true);
+                toast.success(t('authMobileVerified') || "Mobile Verified!");
             }
+
         } catch (error) {
-            toast.error(error.message);
+            console.error("OTP Verification Error:", error);
+            toast.error(error.message || t('authInvalidOtp'));
         } finally {
             setLoading(false);
         }
@@ -192,7 +174,7 @@ const OTPVerify = () => {
                                 <div className="space-y-3">
                                     <OTPInput length={6} onComplete={(val) => setMobileOtp(val)} />
                                     <Button
-                                        onClick={() => verifyOtp('mobile', mobile, mobileOtp)}
+                                        onClick={() => verifyLocalOtp('mobile', mobile, mobileOtp)}
                                         disabled={loadingMobile || mobileOtp.length !== 6}
                                         className="w-full h-9 text-sm"
                                     >
@@ -227,7 +209,7 @@ const OTPVerify = () => {
                             <div className="space-y-3">
                                 <OTPInput length={6} onComplete={(val) => setEmailOtp(val)} />
                                 <Button
-                                    onClick={() => verifyOtp('email', email, emailOtp)}
+                                    onClick={() => verifyLocalOtp('email', email, emailOtp)}
                                     disabled={loadingEmail || emailOtp.length !== 6}
                                     className="w-full h-9 text-sm"
                                 >

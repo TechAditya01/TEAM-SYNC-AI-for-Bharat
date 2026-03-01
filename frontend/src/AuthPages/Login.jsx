@@ -2,67 +2,65 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/LandingPages/Navbar';
 import Footer from '../components/LandingPages/Footer';
-// import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-// import { auth, db } from '../../services/firebase';
-// import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function Login() {
-    const navigate = useNavigate(); // Moved to top
+    const navigate = useNavigate();
     const location = useLocation();
-    const { login } = useAuth();
     const { t } = useLanguage();
+    const { login } = useAuth();
+
     const [userType, setUserType] = useState('citizen');
     const [showPassword, setShowPassword] = useState(false);
 
     // Form States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-
     const [isLoading, setIsLoading] = useState(false);
 
     React.useEffect(() => {
         if (location.state?.userType) {
             setUserType(location.state.userType);
         }
+        if (location.state?.email) {
+            setEmail(location.state.email);
+        }
     }, [location.state]);
 
-    // Note: Auto-redirect removed to allow OTP flow for email logins.
-    // We only redirect if User is ALREADY authenticated on page load (clean session check),
-    // but not immediately during the login function flow to avoid race conditions with OTP step.
-    /*
-    React.useEffect(() => {
-        if (isAuthenticated) {
-           // Optional: You could restore this if you want to skip login page for active sessions,
-           // but for this OTP flow, strictly manual navigation is safer.
-        }
-    }, [isAuthenticated]); 
-    */
-
+    // --- CONNECTED TO AWS COGNITO SDK ---
     const handleLogin = async (e) => {
         e.preventDefault();
         setIsLoading(true);
+
         try {
-            // Trim inputs to avoid whitespace errors
             const cleanEmail = email.trim();
             const cleanPassword = password.trim();
 
+            // 1. AWS Cognito SDK handles authentication and token generation automatically!
             await login(cleanEmail, cleanPassword, userType);
-            toast.success(t('authCredentialsVerified'));
+
+            toast.success(t('authCredentialsVerified') || "Login successful!");
+
+            // 2. Redirect based on role
             navigate(userType === 'admin' ? '/admin/dashboard' : '/civic/dashboard');
 
         } catch (error) {
-            console.error(error);
-            let msg = error.message;
-            if (msg.includes('auth/invalid-credential') || msg.includes('auth/user-not-found') || msg.includes('auth/wrong-password')) {
-                msg = t('authInvalidCredentials');
-            } else if (msg.includes('auth/too-many-requests')) {
-                msg = t('authTooManyRequests');
+            console.error("AWS Login Error:", error);
+
+            // Cognito specific errors
+            if (error.name === 'NotAuthorizedException') {
+                toast.error(t('authInvalidCredentials') || "Incorrect email or password.");
+            } else if (error.name === 'UserNotConfirmedException') {
+                toast.error("Please verify your email via the OTP sent to you before logging in.");
+                navigate('/otp-verify', {
+                    state: { email: email.trim(), userType: userType, mode: 'register' }
+                });
+            } else {
+                toast.error(error.message || t('authInvalidCredentials'));
             }
-            toast.error(msg);
         } finally {
             setIsLoading(false);
         }
