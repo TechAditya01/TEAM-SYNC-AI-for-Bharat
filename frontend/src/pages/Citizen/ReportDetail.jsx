@@ -20,7 +20,7 @@ const ReportDetail = () => {
 
   /* -------- FETCH REPORT -------- */
   React.useEffect(() => {
-    const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+    const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 
     fetch(`${API}/api/reports/${id}`)
       .then((r) => r.json())

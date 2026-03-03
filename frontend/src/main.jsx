@@ -1,10 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider as OIDCProvider } from "react-oidc-context";
 import { AuthProvider as CustomAuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { LanguageProvider } from "./context/LanguageContext";
+import { Toaster } from "react-hot-toast";
 import "./index.css";
 
 const cognitoAuthConfig = {
@@ -18,14 +20,17 @@ const cognitoAuthConfig = {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <OIDCProvider {...cognitoAuthConfig}>
-      <CustomAuthProvider>
-        <ThemeProvider>
-          <LanguageProvider>
-            <App />
-          </LanguageProvider>
-        </ThemeProvider>
-      </CustomAuthProvider>
-    </OIDCProvider>
+    <BrowserRouter>
+      <OIDCProvider {...cognitoAuthConfig}>
+        <CustomAuthProvider>
+          <ThemeProvider>
+            <LanguageProvider>
+              <App />
+              <Toaster position="top-right" />
+            </LanguageProvider>
+          </ThemeProvider>
+        </CustomAuthProvider>
+      </OIDCProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );

@@ -67,7 +67,7 @@ const AdminDashboard = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await fetch("http://localhost:8000/api/dashboard");
+                const res = await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/dashboard`);
                 const data = await res.json();
                 processReports(data);
             } catch (err) {
@@ -132,7 +132,7 @@ const AdminDashboard = () => {
         if (!selectedIncident) return;
 
         try {
-            await fetch("http://localhost:8000/api/update-status", {
+            await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/update-status`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

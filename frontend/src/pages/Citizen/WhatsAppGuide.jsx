@@ -17,7 +17,7 @@ const WhatsAppGuide = () => {
     setLoading(true);
     try {
       const API_BASE =
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+        import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 
       const res = await fetch(`${API_BASE}/api/auth/join-community`, {
         method: "POST",

@@ -8,3 +8,10 @@ WhatsApp Image 2026-02-06 at 3.26.14 PM.jpeg
 # OS files
 Thumbs.db
 .DS_Store
+
+# Excluded Guides and Tests
+OTP_TESTING_GUIDE.md
+AWS_SETUP_GUIDE.md
+TESTING_GUIDE.md
+test_aws_ses.py
+

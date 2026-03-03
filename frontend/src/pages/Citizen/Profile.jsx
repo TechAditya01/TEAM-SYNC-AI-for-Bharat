@@ -37,7 +37,7 @@ const Profile = () => {
     badges: [],
   });
 
-  const [weeklyActivity, setWeeklyActivity] = React.useState([0,0,0,0,0,0,0]);
+  const [weeklyActivity, setWeeklyActivity] = React.useState([0, 0, 0, 0, 0, 0, 0]);
   const [uploadingPic, setUploadingPic] = React.useState(false);
   const fileInputRef = React.useRef(null);
 
@@ -45,7 +45,7 @@ const Profile = () => {
   React.useEffect(() => {
     if (!currentUser) return navigate("/login");
 
-    const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+    const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 
     fetch(`${API}/api/user/${currentUser.id}`)
       .then(r => r.json())
@@ -59,7 +59,7 @@ const Profile = () => {
           points: data.user.points || 0,
         });
 
-        setWeeklyActivity(data.weeklyActivity || [0,0,0,0,0,0,0]);
+        setWeeklyActivity(data.weeklyActivity || [0, 0, 0, 0, 0, 0, 0]);
       })
       .catch(() => toast.error("Failed to load profile"));
   }, [currentUser, navigate]);
@@ -79,7 +79,7 @@ const Profile = () => {
     const t = toast.loading("Uploading...");
 
     try {
-      const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+      const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 
       const fd = new FormData();
       fd.append("file", file);
@@ -230,9 +230,8 @@ const Profile = () => {
 /* ---------------- UI COMPONENTS ---------------- */
 
 const StatBox = ({ label, value, highlighted }) => (
-  <div className={`p-3 rounded-xl border text-center ${
-    highlighted ? "bg-black text-white" : "bg-slate-50"
-  }`}>
+  <div className={`p-3 rounded-xl border text-center ${highlighted ? "bg-black text-white" : "bg-slate-50"
+    }`}>
     <div className="font-bold text-xl">{value}</div>
     <div className="text-xs">{label}</div>
   </div>

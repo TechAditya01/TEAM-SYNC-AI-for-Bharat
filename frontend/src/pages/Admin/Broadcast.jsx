@@ -30,7 +30,7 @@ const Broadcast = () => {
         if (location.state?.incidentId) {
             const fetchIncident = async () => {
                 try {
-                    const res = await fetch(`/api/reports/${location.state.incidentId}`);
+                    const res = await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/reports/${location.state.incidentId}`);
                     if (!res.ok) return;
 
                     const data = await res.json();
@@ -93,7 +93,7 @@ const Broadcast = () => {
 
         try {
             // Optional API
-            await fetch("/api/broadcast", {
+            await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/broadcast`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -169,8 +169,8 @@ Please follow official instructions and avoid the zone.
                                         key={t}
                                         onClick={() => setType(t)}
                                         className={`px-3 py-1 rounded-lg text-xs border ${type === t
-                                                ? "bg-red-50 border-red-300 text-red-600"
-                                                : "bg-white"
+                                            ? "bg-red-50 border-red-300 text-red-600"
+                                            : "bg-white"
                                             }`}
                                     >
                                         {t}
@@ -196,7 +196,7 @@ Please follow official instructions and avoid the zone.
                             onClick={handleSend}
                             disabled={sending || sent}
                             className={`w-full py-3 rounded-xl text-white ${sent ? "bg-green-600"
-                                    : "bg-red-600 hover:bg-red-700"
+                                : "bg-red-600 hover:bg-red-700"
                                 }`}
                         >
                             {sending

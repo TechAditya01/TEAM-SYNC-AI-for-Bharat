@@ -80,11 +80,12 @@ export default function Register() {
 
       toast.success("Registered successfully. Check email OTP");
 
-      navigate("/otp-verify", {
+      navigate("/verify-otp", {
         state: {
           email: formData.email,
           mobile: formData.mobile,
           userType,
+          name: `${formData.firstName} ${formData.lastName}`,
         },
       });
     } catch (err) {

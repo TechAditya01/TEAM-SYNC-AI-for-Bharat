@@ -1,189 +1,129 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Smartphone, Mail, CheckCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, CheckCircle, Loader2 } from 'lucide-react';
 import AuthCard from '../components/auth/AuthCard';
 import Button from '../components/ui/Button';
 import OTPInput from '../components/auth/OTPInput';
-import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 const OTPVerify = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { email, mobile, userType, mode, uid: stateUid } = location.state || {};
-    const { loginWithToken, currentUser, verifyOtp } = useAuth();
+    const { email, mobile, userType, mode, uid: stateUid, name: userName } = location.state || {};
     const { t } = useLanguage();
 
-    // Fallback if state is lost (e.g. reload), but requires user to be partially authed via Firebase
-    const uid = stateUid || currentUser?.uid;
-
-    useEffect(() => {
-        if (!uid && mode !== 'login') {
-            // If we really can't find a UID and we aren't just logging in (where we might not have currentUser yet if not synced),
-            // then this is a problem. But for 'login' mode, we usually rely on stateUid. 
-            // If stateUid is missing in login flow, we are stuck.
-        }
-    }, [uid, mode]);
-
-    const [mobileOtp, setMobileOtp] = useState('');
     const [emailOtp, setEmailOtp] = useState('');
 
-    // For admins, mobile is not required (Gmail only). For login, mobile is ignored.
-    const [mobileVerified, setMobileVerified] = useState(mode === 'login' || userType === 'admin');
+    // Only email verification required
+    const [mobileVerified, setMobileVerified] = useState(true);
     const [emailVerified, setEmailVerified] = useState(false);
 
-    const [loadingMobile, setLoadingMobile] = useState(false);
     const [loadingEmail, setLoadingEmail] = useState(false);
-    const [authToken, setAuthToken] = useState(null);
 
     useEffect(() => {
-        // Validation: For registration (citizen), need both. For login or admin, need email.
-        const isCitizenRegister = mode !== 'login' && userType === 'citizen';
-        const missingData = isCitizenRegister ? (!email || !mobile) : !email;
-
-        if (missingData) {
-            toast.error(t('authNoVerificationDetails'));
+        // Validation: Only email required
+        if (!email) {
+            toast.error(t('authNoVerificationDetails') || 'Email is required');
             navigate(mode === 'login' ? '/login' : '/register');
         }
-    }, [email, mobile, navigate, mode, userType]);
+    }, [email, navigate, mode, userType, t]);
 
     useEffect(() => {
         const finalizeVerification = async () => {
-            if (mobileVerified && emailVerified) {
-                // If we also have an authToken, we can try to use it.
-                // However, if we are ALREADY logged in (currentUser exits) and UID matches, we can skip re-auth.
-                // This prevents issues where signInWithCustomToken might hang or conflict with an active password session.
-
+            if (emailVerified) {
                 try {
-                    const isAlreadyLoggedIn = currentUser && currentUser.uid === uid;
+                    toast.success(t('authVerificationComplete') || "Email verified successfully!");
 
-                    if (!isAlreadyLoggedIn && authToken) {
-                        await loginWithToken(authToken);
-                    } else if (!isAlreadyLoggedIn && !authToken) {
-                        // If we aren't logged in and don't have a token, we can't proceed.
-                        // Waiting for token... (unless email verification failed to give one)
-                        return;
-                    }
-
-                    toast.success(t('authVerificationComplete'));
+                    // Account is now confirmed in Cognito
+                    // Redirect to login page for user to log in with their credentials
                     setTimeout(() => {
-                        navigate(userType === 'admin' ? '/admin/dashboard' : '/civic/dashboard');
-                    }, 500);
+                        console.log('Redirecting to login page');
+                        navigate('/login', {
+                            state: {
+                                email,
+                                userType,
+                                message: "Your account is verified! Please log in with your credentials."
+                            }
+                        });
+                    }, 1500);
                 } catch (err) {
-                    console.error("Login with token failed:", err);
-                    toast.error(t('authSessionStartFailed'));
-                    navigate('/login');
+                    console.error("Verification finalization error:", err);
+                    toast.error(err.message || "Failed to complete verification");
                 }
             }
         };
         finalizeVerification();
-    }, [mobileVerified, emailVerified, authToken, userType, navigate, loginWithToken, currentUser, uid]);
+    }, [emailVerified, userType, navigate, t, email]);
 
-    const sendOtp = async (type, contact) => {
-        const setLoading = type === 'mobile' ? setLoadingMobile : setLoadingEmail;
-        setLoading(true);
-
-        // Map 'mobile' UI action to 'whatsapp' backend type for now, or keep 'mobile' if using SMS.
-        // User request specifically mentions using WhatsApp OTP.
-        const reqType = type === 'mobile' ? 'whatsapp' : type;
+    const sendOtp = async (contact) => {
+        setLoadingEmail(true);
 
         try {
-            const API_BASE_URL = import.meta.env.VITE_AWS_API_GATEWAY_URL || 'https://YOUR_API_GATEWAY_URL.execute-api.ap-south-1.amazonaws.com/prod';
-            const res = await fetch(`${API_BASE_URL}/send-otp`, {
+            const API_BASE_URL = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+            const res = await fetch(`${API_BASE_URL}/api/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: reqType, contact })
+                body: JSON.stringify({
+                    type: 'email',
+                    contact,
+                    name: userName || 'User'
+                })
             });
             const data = await res.json();
             if (res.ok) {
-                toast.success(type === 'mobile' ? t('authWhatsappOtpSent') : t('authEmailOtpSent'));
+                toast.success(t('authEmailOtpSent') || 'OTP sent to your email');
             } else {
-                throw new Error(data.error || 'Failed to send OTP');
+                throw new Error(data.detail || 'Failed to send OTP');
             }
         } catch (error) {
             toast.error(error.message);
         } finally {
-            setLoading(false);
+            setLoadingEmail(false);
         }
     };
 
-    const verifyLocalOtp = async (type, contact, otp) => {
+    const verifyLocalOtp = async (contact, otp) => {
         if (otp.length !== 6) return toast.error(t('authEnterValidOtp'));
 
-        const setLoading = type === 'mobile' ? setLoadingMobile : setLoadingEmail;
-        const setVerified = type === 'mobile' ? setMobileVerified : setEmailVerified;
-
-        setLoading(true);
+        setLoadingEmail(true);
         try {
-            if (type === 'email') {
-                // Use actual AWS Cognito SDK for email verification!
-                await verifyOtp(contact, otp);
-                setVerified(true);
-                toast.success(t('authEmailVerified') || "Email Verified Successfully!");
+            const API_BASE_URL = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+            const res = await fetch(`${API_BASE_URL}/api/verify-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: contact, code: otp })
+            });
 
-                // Route user to login after successful registration verification
-                setTimeout(() => {
-                    navigate('/login', { state: { email: contact, userType: userType } });
-                }, 1500);
+            const data = await res.json();
 
-            } else {
-                // Mobile is mocked for Hackathon (AWS Cognito requires advanced SMS config)
-                setVerified(true);
-                toast.success(t('authMobileVerified') || "Mobile Verified!");
+            if (!res.ok) {
+                throw new Error(data.detail || 'OTP verification failed');
             }
+
+            // OTP verified successfully on backend
+            // No need to call Cognito confirmRegistration since we use our own OTP system
+            console.log('✅ OTP verified on backend');
+            setEmailVerified(true);
+            toast.success(t('authEmailVerified') || "Email Verified Successfully!");
 
         } catch (error) {
             console.error("OTP Verification Error:", error);
             toast.error(error.message || t('authInvalidOtp'));
         } finally {
-            setLoading(false);
+            setLoadingEmail(false);
         }
     };
 
-    if ((mode !== 'login' && !mobile) || !email) return null;
+    if (!email) return null;
 
     return (
         <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
             <AuthCard
                 title={mode === 'login' ? t('authTwoFactorTitle') : t('authAccountVerificationTitle')}
-                subtitle={mode === 'login' ? t('authVerifyEmailSubtitle') : t('authVerifyMobileEmailSubtitle')}
+                subtitle={t('authVerifyEmailSubtitle') || 'Please verify your email to continue'}
             >
                 <div className="space-y-8">
-                    {/* Mobile Verification Section - Show if Citizen and NOT in login mode */}
-                    {mode !== 'login' && userType === 'citizen' && (
-                        <div className={`p-4 rounded-xl border ${mobileVerified ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-slate-200 dark:border-slate-800'}`}>
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <Smartphone className={`w-5 h-5 ${mobileVerified ? 'text-green-600' : 'text-slate-500'}`} />
-                                    <div>
-                                        <h3 className="font-semibold text-slate-900 dark:text-white">{t('authMobileVerification')}</h3>
-                                        <p className="text-xs text-slate-500">{mobile}</p>
-                                    </div>
-                                </div>
-                                {mobileVerified ? (
-                                    <CheckCircle className="w-6 h-6 text-green-600" />
-                                ) : (
-                                    <button onClick={() => sendOtp('mobile', mobile)} disabled={loadingMobile} className="text-sm text-blue-600 hover:underline">
-                                        {loadingMobile ? t('authSending') : t('authSendOtp')}
-                                    </button>
-                                )}
-                            </div>
-
-                            {!mobileVerified && (
-                                <div className="space-y-3">
-                                    <OTPInput length={6} onComplete={(val) => setMobileOtp(val)} />
-                                    <Button
-                                        onClick={() => verifyLocalOtp('mobile', mobile, mobileOtp)}
-                                        disabled={loadingMobile || mobileOtp.length !== 6}
-                                        className="w-full h-9 text-sm"
-                                    >
-                                        {loadingMobile ? <Loader2 className="w-4 h-4 animate-spin" /> : t('authVerifyMobile')}
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )} {/* End Mobile Section */}
 
                     {/* Email Verification Section - Always Show */}
                     <div className={`p-4 rounded-xl border ${emailVerified ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-slate-200 dark:border-slate-800'}`}>
@@ -199,7 +139,7 @@ const OTPVerify = () => {
                             {emailVerified ? (
                                 <CheckCircle className="w-6 h-6 text-green-600" />
                             ) : (
-                                <button onClick={() => sendOtp('email', email)} disabled={loadingEmail} className="text-sm text-blue-600 hover:underline">
+                                <button onClick={() => sendOtp(email)} disabled={loadingEmail} className="text-sm text-blue-600 hover:underline">
                                     {loadingEmail ? t('authSending') : t('authSendOtp')}
                                 </button>
                             )}
@@ -209,7 +149,7 @@ const OTPVerify = () => {
                             <div className="space-y-3">
                                 <OTPInput length={6} onComplete={(val) => setEmailOtp(val)} />
                                 <Button
-                                    onClick={() => verifyLocalOtp('email', email, emailOtp)}
+                                    onClick={() => verifyLocalOtp(email, emailOtp)}
                                     disabled={loadingEmail || emailOtp.length !== 6}
                                     className="w-full h-9 text-sm"
                                 >

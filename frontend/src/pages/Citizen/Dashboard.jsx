@@ -31,7 +31,7 @@ const Dashboard = () => {
         const fetchReports = async () => {
             if (!user?.sub) return;
             try {
-                const res = await fetch(`http://localhost:8000/api/my-reports/${user.sub}`);
+                const res = await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/my-reports/${user.sub}`);
                 const data = await res.json();
                 setReports(data || []);
 

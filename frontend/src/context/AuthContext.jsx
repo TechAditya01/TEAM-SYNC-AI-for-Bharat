@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
           setLoading(false);
           return;
         }
-        
+
         // 🔹 Get attributes for role
         currentUser.getUserAttributes((err, attributes) => {
           if (err) {
@@ -90,7 +90,7 @@ export function AuthProvider({ children }) {
 
         try {
           const sub = result.userSub;
-          await fetch("http://localhost:8000/api/save-user", {
+          await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/save-user`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -113,8 +113,28 @@ export function AuthProvider({ children }) {
     });
   };
 
+  const verifyOtp = (email, otp) => {
+    return new Promise((resolve, reject) => {
+      const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
+      cognitoUser.confirmRegistration(otp, true, (err, result) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        // After confirmation, user can login
+        resolve(result);
+      });
+    });
+  };
+
+  const loginWithToken = async (token) => {
+    // This function would be used if implementing custom token-based login
+    // For now, Cognito handles authentication automatically
+    return Promise.resolve();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, register, verifyOtp, loginWithToken, loading, currentUser: user }}>
       {children}
     </AuthContext.Provider>
   );

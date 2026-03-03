@@ -55,7 +55,7 @@ const SOS = () => {
         );
         const data = await res.json();
         if (data.display_name) address = data.display_name;
-      } catch {}
+      } catch { }
 
       const loc = { lat, lng, address };
       setSentLocation(loc);
@@ -80,7 +80,7 @@ const SOS = () => {
         };
 
         const API_BASE =
-          import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+          import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 
         await fetch(`${API_BASE}/api/reports/create`, {
           method: "POST",
@@ -165,11 +165,10 @@ const SOS = () => {
 
           <button
             onClick={handleSOSClick}
-            className={`w-72 h-72 rounded-full flex flex-col items-center justify-center shadow-2xl border-8 transition ${
-              active
+            className={`w-72 h-72 rounded-full flex flex-col items-center justify-center shadow-2xl border-8 transition ${active
                 ? "bg-white border-red-500 text-red-600"
                 : "bg-red-600 border-red-100 text-white"
-            }`}
+              }`}
           >
             {active ? (
               <>

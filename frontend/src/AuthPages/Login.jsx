@@ -45,7 +45,7 @@ export default function Login() {
             toast.success(t('authCredentialsVerified') || "Login successful!");
 
             // 2. Redirect based on role
-            navigate(userType === 'admin' ? '/admin/dashboard' : '/civic/dashboard');
+            navigate(userType === 'admin' ? '/admin' : '/dashboard');
 
         } catch (error) {
             console.error("AWS Login Error:", error);
@@ -55,7 +55,7 @@ export default function Login() {
                 toast.error(t('authInvalidCredentials') || "Incorrect email or password.");
             } else if (error.name === 'UserNotConfirmedException') {
                 toast.error("Please verify your email via the OTP sent to you before logging in.");
-                navigate('/otp-verify', {
+                navigate('/verify-otp', {
                     state: { email: email.trim(), userType: userType, mode: 'register' }
                 });
             } else {
