@@ -1,46 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import AdminSidebar from './Sidebar';
 import AdminTopbar from './Topbar';
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const AdminLayout = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState(null);
-
-    useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                const token = localStorage.getItem("token");
-                if (!token) {
-                    setLoading(false);
-                    return;
-                }
-
-                const API_BASE_URL = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
-
-                const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                });
-
-                if (!res.ok) {
-                    setLoading(false);
-                    return;
-                }
-
-                const data = await res.json();
-                setUser(data.user);
-            } catch (err) {
-                console.error("Auth check failed:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        checkAuth();
-    }, []);
+    const { user, loading } = useAuth();
 
     // Loading screen
     if (loading) {
@@ -56,14 +22,14 @@ const AdminLayout = ({ children }) => {
         );
     }
 
-    // Not logged in OR not admin
-    if (!user || user.role !== "admin") {
-        return <Navigate to="/login" />;
+    // Not logged in OR not admin → redirect to login
+    if (!user || user.role !== 'admin') {
+        return <Navigate to="/login" state={{ userType: 'admin' }} />;
     }
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex transition-colors duration-500 overflow-hidden">
-            <AdminSidebar isOpen={isSidebarOpen} />
+            <AdminSidebar isOpen={isSidebarOpen} officer={user} />
 
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
                 {/* Background */}
@@ -73,7 +39,7 @@ const AdminLayout = ({ children }) => {
                 <AdminTopbar
                     toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                     isSidebarOpen={isSidebarOpen}
-                    user={user}
+                    officer={user}
                 />
 
                 <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8 relative z-10 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">

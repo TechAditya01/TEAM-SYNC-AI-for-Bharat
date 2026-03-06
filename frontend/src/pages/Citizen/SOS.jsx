@@ -9,8 +9,12 @@ import {
   BellRing,
 } from "lucide-react";
 import CivicLayout from "./CivicLayout";
+import { useAuth } from "../../context/AuthContext";
 
 const SOS = () => {
+  const { user } = useAuth();
+  const userId = user?.sub || localStorage.getItem("uid") || "";
+  const userPhone = user?.phone_number || localStorage.getItem("phone") || "N/A";
   const [countdown, setCountdown] = useState(null);
   const [active, setActive] = useState(false);
   const [sentLocation, setSentLocation] = useState(null);
@@ -63,8 +67,8 @@ const SOS = () => {
       // Send SOS report to backend
       try {
         const reportData = {
-          userId: localStorage.getItem("uid"),
-          userName: localStorage.getItem("name") || "Citizen",
+          userId: userId || "anonymous",
+          userName: user ? `${user['custom:firstName'] || user.name || 'Citizen'}` : "Citizen",
           type: "SOS Emergency",
           description:
             "User activated Emergency SOS beacon. Immediate assistance required.",
@@ -143,7 +147,7 @@ const SOS = () => {
               <ContactRow name="Fire Brigade" number="101" />
               <ContactRow
                 name="My Number"
-                number={localStorage.getItem("phone") || "N/A"}
+                number={userPhone}
               />
             </div>
           </div>

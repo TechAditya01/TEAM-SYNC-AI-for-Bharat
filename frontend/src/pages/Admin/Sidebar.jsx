@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   List,
@@ -13,28 +13,17 @@ import {
   Radio,
   CheckSquare
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
-/* ---------- MOCK OFFICER ---------- */
-const mockOfficer = {
-  department: "Sanitation"
-};
-
-const AdminSidebar = ({ isOpen }) => {
+const AdminSidebar = ({ isOpen, officer }) => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const [officer, setOfficer] = useState(null);
+  const { logout } = useAuth();
 
-  useEffect(() => {
-    // replace with GET /api/officer/me
-    setTimeout(() => setOfficer(mockOfficer), 200);
-  }, []);
-
+  const department = officer?.department || 'Operations';
   const isActive = (path) => location.pathname === path;
 
   const handleLogout = () => {
-    // replace with backend logout / token clear
-    localStorage.removeItem("token");
-    navigate("/login");
+    logout();
   };
 
   if (!officer) return null;
@@ -61,7 +50,7 @@ const AdminSidebar = ({ isOpen }) => {
                 Admin Hub
               </h1>
               <p className="text-[10px] font-bold text-blue-500 uppercase">
-                {officer.department}
+                {department}
               </p>
             </div>
           )}

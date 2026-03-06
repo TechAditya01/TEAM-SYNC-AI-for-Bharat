@@ -16,7 +16,7 @@ const Sidebar = ({ isOpen }) => {
 
             {/* Logo Section */}
             <div className="h-16 flex items-center justify-center border-b border-slate-200 dark:border-slate-700">
-                <Link to="/civic/dashboard" className="flex items-center gap-3 font-bold text-xl">
+                <Link to="/dashboard" className="flex items-center gap-3 font-bold text-xl">
                     <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
                         <img src={logo} alt="नगर Alert Hub" className="w-full h-full object-cover" />
                     </div>
@@ -45,30 +45,30 @@ const Sidebar = ({ isOpen }) => {
                 <SidebarItem
                     icon={<LayoutDashboard size={20} />}
                     label="Overview"
-                    to="/civic/dashboard"
-                    active={isActive('/civic/dashboard')}
+                    to="/dashboard"
+                    active={isActive('/dashboard')}
                     expanded={isOpen}
                 />
                 <SidebarItem
                     icon={<Map size={20} />}
                     label="Live Map"
-                    to="/civic/map"
-                    active={isActive('/civic/map')}
+                    to="/map"
+                    active={isActive('/map')}
                     expanded={isOpen}
                 />
                 <SidebarItem
                     icon={<Camera size={20} />}
                     label="New Report"
-                    to="/civic/report"
-                    active={isActive('/civic/report')}
+                    to="/report"
+                    active={isActive('/report')}
                     expanded={isOpen}
                     badge="New"
                 />
                 <SidebarItem
                     icon={<FileText size={20} />}
                     label="My Reports"
-                    to="/civic/my-reports"
-                    active={isActive('/civic/my-reports')}
+                    to="/my-reports"
+                    active={isActive('/my-reports')}
                     expanded={isOpen}
                 />
 
@@ -90,8 +90,8 @@ const Sidebar = ({ isOpen }) => {
                 <SidebarItem
                     icon={<Award size={20} />}
                     label="Achievements"
-                    to="/civic/achievements"
-                    active={isActive('/civic/achievements')}
+                    to="/achievements"
+                    active={isActive('/achievements')}
                     expanded={isOpen}
                 />
 
@@ -105,8 +105,8 @@ const Sidebar = ({ isOpen }) => {
                 <SidebarItem
                     icon={<User size={20} />}
                     label="Profile"
-                    to="/civic/profile"
-                    active={isActive('/civic/profile')}
+                    to="/profile"
+                    active={isActive('/profile')}
                     expanded={isOpen}
                 />
                 <SidebarItem
@@ -120,8 +120,8 @@ const Sidebar = ({ isOpen }) => {
                 <SidebarItem
                     icon={<MessageCircle size={20} />}
                     label="WhatsApp Guide"
-                    to="/civic/guide"
-                    active={isActive('/civic/guide')}
+                    to="/whatsapp-guide"
+                    active={isActive('/whatsapp-guide')}
                     expanded={isOpen}
                 />
                 <SidebarItem

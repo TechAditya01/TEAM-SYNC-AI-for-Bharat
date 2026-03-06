@@ -1,17 +1,33 @@
 # Images
-image.png
-image copy.png
-image copy 2.png
-image copy 3.png
-WhatsApp Image 2026-02-06 at 3.26.14 PM.jpeg
+i
 
 # OS files
 Thumbs.db
 .DS_Store
 
-# Excluded Guides and Tests
-OTP_TESTING_GUIDE.md
-AWS_SETUP_GUIDE.md
-TESTING_GUIDE.md
-test_aws_ses.py
+# Lambda functions (AWS deployment code)
+lambda_functions/
 
+# Deployment configurations
+deployment/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build logs
+*.log
+build.log

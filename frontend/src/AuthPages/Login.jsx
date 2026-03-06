@@ -219,9 +219,9 @@ export default function Login() {
                                     </>
                                 )}
                             </button>
-
+                        
                         </form>
-
+                        
                         <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700/50 text-center">
                             <p className="text-slate-500 dark:text-gray-400 text-sm">
                                 {t('authNewToPlatform')} <Link to="/register" className="text-blue-600 dark:text-blue-400 font-semibold hover:text-blue-500 dark:hover:text-blue-300 ml-1">{t('authRegisterAccount')}</Link>

@@ -1,29 +1,57 @@
 import { Link } from 'react-router-dom';
-import { Menu, Search, Bell, Sun, Moon, User } from 'lucide-react';
-import React, { useState } from 'react';
+import { Menu, Bell, Sun, Moon, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
+const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+
+const formatTime = (ts) => {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
+};
+
 const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
-    const { currentUser } = useAuth();
+    const { user } = useAuth();
     const { theme, toggleTheme } = useTheme();
+    const userId = user?.sub || localStorage.getItem('uid') || '';
 
     const [showNotifications, setShowNotifications] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const dropdownRef = useRef(null);
 
-    // Local / API notifications (replace later with backend)
-    const [notifications] = useState([
-        { id: 1, title: 'Issue Resolved', message: 'Your reported pothole has been fixed', time: '2m ago', read: false },
-        { id: 2, title: 'New Update', message: 'City council meeting scheduled', time: '1h ago', read: true },
-        { id: 3, title: 'Action Required', message: 'Please verify your recent complaint', time: '3h ago', read: false },
-    ]);
+    // Fetch real notifications from API
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`${API}/api/user/${userId}/notifications?limit=10`)
+            .then(r => r.json())
+            .then(data => {
+                const list = (data.notifications || []).map(n => ({
+                    id: n.notificationId,
+                    title: n.title,
+                    message: n.message,
+                    time: formatTime(n.createdAt),
+                    read: n.read,
+                }));
+                setNotifications(list);
+            })
+            .catch(() => {}); // silent fail — topbar is non-critical
+    }, [userId]);
 
-    const userName = currentUser
-        ? (currentUser.firstName
-            ? `${currentUser.firstName} ${currentUser.lastName || ''}`
-            : (currentUser.displayName || "User"))
-        : "Guest";
+    // Mark single notification read via API when clicked
+    const handleNotifClick = async (id) => {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        try {
+            await fetch(`${API}/api/notifications/${id}/read`, { method: 'POST' });
+        } catch { }
+    };
 
+    const userName = user?.name || user?.['custom:firstName'] || user?.email?.split('@')[0] || 'Guest';
     const unreadCount = notifications.filter(n => !n.read).length;
 
     return (
@@ -36,16 +64,6 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
                 >
                     <Menu size={20} />
                 </button>
-
-                {/* Search */}
-                <div className="hidden md:flex items-center gap-3 bg-slate-100 dark:bg-slate-700 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 focus-within:border-blue-500 w-64 lg:w-96">
-                    <Search size={18} className="text-slate-500" />
-                    <input
-                        type="text"
-                        placeholder="Search city, area, or issue..."
-                        className="bg-transparent outline-none text-sm w-full"
-                    />
-                </div>
             </div>
 
             <div className="flex items-center gap-2 md:gap-3">
@@ -59,11 +77,6 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
                         ? <Sun size={20} />
                         : <Moon size={20} />
                     }
-                </button>
-
-                {/* Mobile Search */}
-                <button className="md:hidden p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
-                    <Search size={20} />
                 </button>
 
                 {/* Notifications */}
@@ -85,11 +98,16 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
                     {showNotifications && (
                         <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
 
-                            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-b">
+                            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-b flex items-center justify-between">
                                 <h3 className="font-bold text-sm flex items-center gap-2">
                                     <Bell size={16} />
                                     Notifications
                                 </h3>
+                                {unreadCount > 0 && (
+                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                                        {unreadCount} new
+                                    </span>
+                                )}
                             </div>
 
                             <div className="max-h-96 overflow-y-auto">
@@ -97,32 +115,36 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
                                     notifications.map((notif) => (
                                         <div
                                             key={notif.id}
-                                            className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 border-b last:border-0"
+                                            onClick={() => handleNotifClick(notif.id)}
+                                            className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 border-b last:border-0 cursor-pointer transition ${
+                                                !notif.read ? 'bg-blue-50 dark:bg-blue-900/10' : ''
+                                            }`}
                                         >
-                                            <p className="text-sm font-semibold">{notif.title}</p>
-                                            <p className="text-xs text-slate-500 mt-0.5">
-                                                {notif.message}
-                                            </p>
-                                            <p className="text-xs text-slate-400 mt-1">
-                                                {notif.time}
-                                            </p>
+                                            <div className="flex items-start justify-between gap-2">
+                                                <p className={`text-sm font-semibold ${!notif.read ? 'text-slate-900' : 'text-slate-600'}`}>
+                                                    {notif.title}
+                                                </p>
+                                                {!notif.read && (
+                                                    <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1.5" />
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-500 mt-0.5">{notif.message}</p>
+                                            <p className="text-xs text-slate-400 mt-1">{notif.time}</p>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="px-4 py-8 text-center text-slate-500">
-                                        No new notifications
+                                    <div className="px-4 py-8 text-center text-slate-500 text-sm">
+                                        No notifications yet
                                     </div>
                                 )}
                             </div>
 
-                            {notifications.length > 0 && (
-                                <Link
-                                    to="/notifications"
-                                    className="block px-4 py-3 text-center text-sm font-semibold text-blue-600 hover:bg-slate-50 border-t"
-                                >
-                                    View All Notifications
-                                </Link>
-                            )}
+                            <Link
+                                to="/notifications"
+                                className="block px-4 py-3 text-center text-sm font-semibold text-blue-600 hover:bg-slate-50 border-t"
+                            >
+                                View All Notifications
+                            </Link>
                         </div>
                     )}
                 </div>
@@ -131,7 +153,7 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
 
                 {/* Profile */}
                 <Link
-                    to="/civic/profile"
+                    to="/profile"
                     className="flex items-center gap-3 pl-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg px-2 py-1"
                 >
                     <div className="text-right hidden md:block">
@@ -139,13 +161,13 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
                             {userName}
                         </div>
                         <div className="text-xs text-slate-500">
-                            {currentUser?.role || 'Citizen'}
+                            {user?.role || 'Citizen'}
                         </div>
                     </div>
 
                     <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center overflow-hidden">
-                        {currentUser?.profilePic ? (
-                            <img src={currentUser.profilePic} className="w-full h-full object-cover" />
+                        {user?.profilePic ? (
+                            <img src={user.profilePic} className="w-full h-full object-cover" />
                         ) : (
                             <User size={18} />
                         )}

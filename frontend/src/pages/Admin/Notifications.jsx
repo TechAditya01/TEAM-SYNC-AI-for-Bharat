@@ -7,42 +7,60 @@ import {
     AlertTriangle,
     Info,
     CheckCircle,
-    Clock
+    Clock,
+    Loader2
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { toast } from "react-hot-toast";
 
-/* ---------------- MOCK DATA (replace with API) ---------------- */
-const mockNotifications = [
-    {
-        id: "1",
-        type: "alert",
-        title: "New Garbage Report",
-        message: "Garbage pile reported near Sector 4 market.",
-        time: new Date().toLocaleString(),
-        read: false,
-        reportId: "123456"
-    },
-    {
-        id: "2",
-        type: "info",
-        title: "Water Leak Report",
-        message: "Water leakage detected on Main Road.",
-        time: new Date().toLocaleString(),
-        read: true,
-        reportId: "654321"
-    }
-];
+const API_BASE = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
 
 const AdminNotifications = () => {
+    const { user } = useAuth();
     const [filter, setFilter] = useState("all");
     const [notifications, setNotifications] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     /* -------- LOAD FROM API -------- */
     useEffect(() => {
-        // replace with GET /api/notifications
-        setTimeout(() => {
-            setNotifications(mockNotifications);
-        }, 300);
-    }, []);
+        if (!user) return;
+
+        const fetchNotifications = async () => {
+            try {
+                // Fetch notifications filtered by admin's department
+                const res = await fetch(`${API_BASE}/api/admin/${user.sub}/notifications?department=${user.department || ''}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setNotifications(data.notifications || []);
+                } else {
+                    // Fallback: generate from dashboard reports
+                    const deptRes = await fetch(`${API_BASE}/api/dashboard?department=${user.department || ''}&adminSub=${user.sub}`);
+                    const reports = await deptRes.json();
+                    const generated = (Array.isArray(reports) ? reports : []).slice(0, 20).map(r => ({
+                        id: `report-${r.report_id}`,
+                        type: r.priority === 'High' ? 'alert' : 'info',
+                        title: `New ${r.type} Report`,
+                        message: `${r.type} reported by ${r.userName || 'Citizen'} - ${r.location?.address || 'Location not specified'}`,
+                        time: new Date(r.createdAt).toLocaleString(),
+                        read: false,
+                        report_id: r.report_id
+                    }));
+                    setNotifications(generated);
+                }
+            } catch (err) {
+                console.error('Failed to load notifications:', err);
+                toast.error('Failed to load notifications');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchNotifications();
+        
+        // Poll every 30 seconds for real-time updates
+        const interval = setInterval(fetchNotifications, 30000);
+        return () => clearInterval(interval);
+    }, [user]);
 
     const filtered =
         filter === "all"
@@ -119,7 +137,12 @@ const AdminNotifications = () => {
                     </div>
 
                     <div className="divide-y">
-                        {filtered.length > 0 ? (
+                        {loading ? (
+                            <div className="p-20 flex flex-col items-center justify-center text-slate-400">
+                                <Loader2 size={36} className="animate-spin mb-4" />
+                                <span className="text-xs font-bold uppercase">Loading Feeds...</span>
+                            </div>
+                        ) : filtered.length > 0 ? (
                             filtered.map(notif => (
                                 <div
                                     key={notif.id}

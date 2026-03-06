@@ -14,6 +14,9 @@ const OTPVerify = () => {
     const { t } = useLanguage();
 
     const [emailOtp, setEmailOtp] = useState('');
+    const [otpSent, setOtpSent] = useState(false); // Track if OTP has been sent
+    const [resendTimer, setResendTimer] = useState(60); // Cooldown timer in seconds
+    const [canResend, setCanResend] = useState(false); // Can resend after cooldown
 
     // Only email verification required
     const [mobileVerified, setMobileVerified] = useState(true);
@@ -26,9 +29,33 @@ const OTPVerify = () => {
         if (!email) {
             toast.error(t('authNoVerificationDetails') || 'Email is required');
             navigate(mode === 'login' ? '/login' : '/register');
+            return;
+        }
+        
+        // AUTO-SEND OTP when component mounts (user lands on page)
+        if (email && !otpSent) {
+            console.log('📧 Auto-sending OTP to:', email);
+            sendOtp(email);
+            setOtpSent(true);
+            startResendTimer();
         }
     }, [email, navigate, mode, userType, t]);
 
+    // Timer for resend cooldown
+    useEffect(() => {
+        let interval = null;
+        if (resendTimer > 0 && !canResend) {
+            interval = setInterval(() => {
+                setResendTimer((prev) => prev - 1);
+            }, 1000);
+        } else if (resendTimer === 0) {
+            setCanResend(true);
+            clearInterval(interval);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer, canResend]);
+
+    // Remove auto-redirect - only redirect after actual OTP verification
     useEffect(() => {
         const finalizeVerification = async () => {
             if (emailVerified) {
@@ -36,16 +63,10 @@ const OTPVerify = () => {
                     toast.success(t('authVerificationComplete') || "Email verified successfully!");
 
                     // Account is now confirmed in Cognito
-                    // Redirect to login page for user to log in with their credentials
+                    // Redirect to dashboard/admin based on role
                     setTimeout(() => {
-                        console.log('Redirecting to login page');
-                        navigate('/login', {
-                            state: {
-                                email,
-                                userType,
-                                message: "Your account is verified! Please log in with your credentials."
-                            }
-                        });
+                        console.log('Redirecting to dashboard');
+                        navigate(userType === 'admin' ? '/admin' : '/dashboard');
                     }, 1500);
                 } catch (err) {
                     console.error("Verification finalization error:", err);
@@ -54,9 +75,15 @@ const OTPVerify = () => {
             }
         };
         finalizeVerification();
-    }, [emailVerified, userType, navigate, t, email]);
+    }, [emailVerified, userType, navigate, t]);
 
     const sendOtp = async (contact) => {
+        // Prevent multiple sends during cooldown
+        if (!canResend && otpSent) {
+            toast.error(`Please wait ${resendTimer} seconds before requesting a new OTP`);
+            return;
+        }
+
         setLoadingEmail(true);
 
         try {
@@ -72,15 +99,26 @@ const OTPVerify = () => {
             });
             const data = await res.json();
             if (res.ok) {
-                toast.success(t('authEmailOtpSent') || 'OTP sent to your email');
+                toast.success(t('authEmailOtpSent') || 'OTP sent to your email! Please check your inbox and spam folder.');
+                console.log('✅ OTP sent successfully. Check your email at:', contact);
+                setOtpSent(true);
+                startResendTimer();
+                // ❌ REMOVED: Don't show OTP in console for security
+                // The OTP should only be visible in the user's email
             } else {
                 throw new Error(data.detail || 'Failed to send OTP');
             }
         } catch (error) {
-            toast.error(error.message);
+            console.error('❌ Send OTP Error:', error);
+            toast.error(error.message || 'Failed to send OTP. Please try again.');
         } finally {
             setLoadingEmail(false);
         }
+    };
+
+    const startResendTimer = () => {
+        setResendTimer(60); // 60 seconds cooldown
+        setCanResend(false);
     };
 
     const verifyLocalOtp = async (contact, otp) => {
@@ -139,8 +177,12 @@ const OTPVerify = () => {
                             {emailVerified ? (
                                 <CheckCircle className="w-6 h-6 text-green-600" />
                             ) : (
-                                <button onClick={() => sendOtp(email)} disabled={loadingEmail} className="text-sm text-blue-600 hover:underline">
-                                    {loadingEmail ? t('authSending') : t('authSendOtp')}
+                                <button 
+                                    onClick={() => sendOtp(email)} 
+                                    disabled={loadingEmail || (!canResend && otpSent)}
+                                    className={`text-sm ${(!canResend && otpSent) ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:underline'}`}
+                                >
+                                    {loadingEmail ? t('authSending') : (!canResend && otpSent ? `Resend OTP in ${resendTimer}s` : (otpSent ? t('authResendOtp') || 'Resend OTP' : t('authSendOtp')))}
                                 </button>
                             )}
                         </div>

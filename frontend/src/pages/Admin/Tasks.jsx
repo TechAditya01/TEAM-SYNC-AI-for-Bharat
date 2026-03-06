@@ -7,9 +7,11 @@ import {
   Briefcase,
   Zap,
   ArrowRight,
-  MoreVertical
+  MoreVertical,
+  Loader2
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext";
 
 /* ---------- MOCK OFFICER ---------- */
 const mockOfficer = {
@@ -47,9 +49,11 @@ const mockTasks = [
 ];
 
 const TaskBoard = () => {
+  const { user } = useAuth();
   const [officer, setOfficer] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -59,40 +63,131 @@ const TaskBoard = () => {
   });
 
   useEffect(() => {
-    // replace with GET /api/officer/me
-    setOfficer(mockOfficer);
+    if (!user) return;
 
-    // replace with GET /api/tasks?dept=
-    setTasks(mockTasks);
-  }, []);
-
-  const handleAddTask = (e) => {
-    e.preventDefault();
-
-    const task = {
-      id: Date.now().toString(),
-      ...newTask,
-      status: "Todo"
+    const fetchTasks = async () => {
+      try {
+        // Fetch tasks filtered by department
+        const API_BASE = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+        
+        // Properly encode the department parameter
+        const params = new URLSearchParams();
+        if (user.department) {
+          params.append('department', user.department);
+        }
+        
+        const url = `${API_BASE}/api/tasks${params.toString() ? '?' + params.toString() : ''}`;
+        console.log('Fetching tasks from:', url);
+        console.log('Department filter:', user.department);
+        
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+          console.error('Failed to fetch tasks:', errorData);
+          throw new Error(errorData.error || 'Failed to load tasks');
+        }
+        
+        const data = await res.json();
+        console.log('Tasks loaded:', data);
+        const taskList = data.tasks || [];
+        setTasks(taskList.map(t => ({
+          id: t.taskId || t.id,
+          title: t.title,
+          description: t.description,
+          priority: t.priority || 'Medium',
+          assignedTo: t.assignedTo || 'Unassigned',
+          status: t.status || 'Todo'
+        })));
+      } catch (err) {
+        console.error('Failed to load tasks:', err);
+        setTasks(mockTasks);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setTasks((prev) => [task, ...prev]);
-
-    toast.success("Assignment Created");
-    setShowAddModal(false);
-    setNewTask({
-      title: "",
-      description: "",
-      priority: "Medium",
-      assignedTo: ""
+    // Set officer info
+    setOfficer({
+      firstName: user.firstName || user.name?.split(' ')[0] || 'Admin',
+      lastName: user.lastName || user.name?.split(' ').slice(1).join(' ') || '',
+      department: user.department || 'Operations'
     });
+
+    fetchTasks();
+    
+    // Poll every 30 seconds for real-time updates
+    const interval = setInterval(fetchTasks, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleAddTask = async (e) => {
+    e.preventDefault();
+
+    try {
+      const API_BASE = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+      const taskData = {
+        title: newTask.title,
+        description: newTask.description,
+        priority: newTask.priority,
+        assignedTo: newTask.assignedTo,
+        department: officer.department,
+        createdBy: user.sub,
+        status: "Todo"
+      };
+
+      const res = await fetch(`${API_BASE}/api/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(taskData)
+      });
+
+      if (res.ok) {
+        const created = await res.json();
+        const task = {
+          id: created.taskId || Date.now().toString(),
+          ...newTask,
+          status: "Todo"
+        };
+        setTasks((prev) => [task, ...prev]);
+        toast.success("Assignment Created");
+        setShowAddModal(false);
+        setNewTask({
+          title: "",
+          description: "",
+          priority: "Medium",
+          assignedTo: ""
+        });
+      } else {
+        throw new Error('Failed to create task');
+      }
+    } catch (err) {
+      console.error('Failed to create task:', err);
+      toast.error("Failed to create assignment");
+    }
   };
 
-  const updateTaskStatus = (taskId, newStatus) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-    );
+  const updateTaskStatus = async (taskId, newStatus) => {
+    try {
+      const API_BASE = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
 
-    toast.success(`Task moved to ${newStatus}`);
+      if (res.ok) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+        );
+        toast.success(`Task moved to ${newStatus}`);
+      } else {
+        throw new Error('Failed to update task');
+      }
+    } catch (err) {
+      console.error('Failed to update task:', err);
+      toast.error("Failed to update task status");
+    }
   };
 
   const columns = [
@@ -101,7 +196,16 @@ const TaskBoard = () => {
     { id: "Completed", label: "Finalized", icon: <CheckCircle size={16} /> }
   ];
 
-  if (!officer) return null;
+  if (!officer || loading) return (
+    <AdminLayout>
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <Loader2 size={36} className="animate-spin text-blue-600" />
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+          Loading Tasks...
+        </p>
+      </div>
+    </AdminLayout>
+  );
 
   return (
     <AdminLayout>

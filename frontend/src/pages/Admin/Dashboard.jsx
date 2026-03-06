@@ -2,37 +2,15 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     MapPin, AlertTriangle, CheckCircle,
-    Sparkles, Search, Send, X, CheckSquare,
-    Video, AlignLeft, ChevronRight
+    Sparkles, Send, X, CheckSquare,
+    ChevronRight
 } from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import { toast } from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext";
+import AWSMapView from "../../components/maps/AWSMapView";
 
-/* ---------------- MOCK DATA ---------------- */
-const mockReports = [
-    {
-        reportId: "rep001234",
-        type: "Garbage",
-        priority: "High",
-        status: "Pending",
-        description: "Garbage pile near road",
-        aiConfidence: 88,
-        userName: "Rahul",
-        location: { lat: 22.5726, lng: 88.3639, address: "Sector 4, City" },
-        createdAt: Date.now()
-    },
-    {
-        reportId: "rep009876",
-        type: "Water Leak",
-        priority: "Medium",
-        status: "Accepted",
-        description: "Water leakage",
-        aiConfidence: 70,
-        userName: "Amit",
-        location: { lat: 22.575, lng: 88.36, address: "MG Road" },
-        createdAt: Date.now()
-    }
-];
+const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 
 /* ---------------- DISTANCE ---------------- */
 const haversineDistance = (c1, c2) => {
@@ -51,6 +29,7 @@ const haversineDistance = (c1, c2) => {
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     const [stats, setStats] = useState({
         open: 0,
@@ -65,27 +44,62 @@ const AdminDashboard = () => {
 
     /* ---------------- LOAD DATA ---------------- */
     useEffect(() => {
+        if (!user) return;
+
         const fetchData = async () => {
             try {
-                const res = await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/dashboard`);
+                const dept = user.department || '';
+                const adminSub = user.sub || '';
+
+                let url = `${API}/api/dashboard`;
+                const params = new URLSearchParams();
+                if (dept) params.set('department', dept);
+                if (adminSub) params.set('adminSub', adminSub);
+                if (params.toString()) url += `?${params.toString()}`;
+
+                const res = await fetch(url);
                 const data = await res.json();
                 processReports(data);
             } catch (err) {
                 console.error("Failed to fetch reports:", err);
                 toast.error("Failed to load live reports");
-                // Fallback to mock for testing if API is down
-                processReports(mockReports);
+                processReports([]);
             }
         };
         fetchData();
         const interval = setInterval(fetchData, 30000); // Poll every 30s
         return () => clearInterval(interval);
-    }, []);
+    }, [user]);
 
     const processReports = reports => {
         let open = 0, high = 0, flagged = 0, resolved = 0;
 
-        reports.forEach(r => {
+        // Fallback frontend filtering to prevent new admins from seeing all reports
+        // in case the backend map fails for unmapped departments.
+        const myDept = user?.department?.toLowerCase();
+
+        // Allowed mapping mirroring the backend
+        const deptMap = {
+            'fire': ['fire', 'fire accident', 'fire hazard'],
+            'fire department': ['fire', 'fire accident', 'fire hazard'],
+            'sanitation': ['garbage', 'waste', 'litter', 'sanitation', 'drainage', 'sewage'],
+            'water': ['water leak', 'water', 'flooding', 'flood'],
+            'electricity': ['electricity', 'power', 'streetlight', 'electric'],
+            'roads': ['pothole', 'road', 'traffic', 'road damage'],
+            'health': ['health', 'hospital', 'medical'],
+            'police': ['crime', 'accident', 'sos', 'violence', 'theft'],
+        };
+        const allowedTypes = myDept ? (deptMap[myDept] || []) : [];
+
+        const filteredReports = reports.filter(r => {
+            if (!myDept) return true; // show all if no dept
+            const rType = (r.type || r.category || "").toLowerCase();
+            const rDept = (r.department || "").toLowerCase();
+
+            return (rDept === myDept || allowedTypes.includes(rType));
+        });
+
+        filteredReports.forEach(r => {
             if (r.status === "Pending") open++;
             if (r.priority === "High") high++;
             if (r.aiConfidence > 80 && r.status === "Pending") flagged++;
@@ -93,9 +107,9 @@ const AdminDashboard = () => {
         });
 
         setStats({ open, highSeverity: high, aiFlagged: flagged, resolved });
-        setRecentReports(reports);
-        if (reports.length && !selectedIncident)
-            setSelectedIncident(reports[0]);
+        setRecentReports(filteredReports);
+        if (filteredReports.length && !selectedIncident)
+            setSelectedIncident(filteredReports[0]);
     };
 
     /* ---------------- CLUSTERS ---------------- */
@@ -104,20 +118,20 @@ const AdminDashboard = () => {
         const visited = new Set();
 
         recentReports.forEach(r => {
-            if (visited.has(r.reportId)) return;
+            if (visited.has(r.report_id)) return;
             if (!r.location) return;
 
             const cluster = [r];
-            visited.add(r.reportId);
+            visited.add(r.report_id);
 
             recentReports.forEach(o => {
-                if (visited.has(o.reportId)) return;
+                if (visited.has(o.report_id)) return;
                 if (!o.location) return;
 
                 const d = haversineDistance(r.location, o.location);
                 if (d <= 300) {
                     cluster.push(o);
-                    visited.add(o.reportId);
+                    visited.add(o.report_id);
                 }
             });
 
@@ -136,13 +150,13 @@ const AdminDashboard = () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    reportId: selectedIncident.reportId,
+                    report_id: selectedIncident.report_id,
                     status: newStatus
                 })
             });
 
             const updated = recentReports.map(r =>
-                r.reportId === selectedIncident.reportId
+                r.report_id === selectedIncident.report_id
                     ? { ...r, status: newStatus }
                     : r
             );
@@ -154,7 +168,7 @@ const AdminDashboard = () => {
 
             if (newStatus === "Accepted")
                 navigate("/admin/broadcast", {
-                    state: { incidentId: selectedIncident.reportId }
+                    state: { incidentId: selectedIncident.report_id }
                 });
         } catch (err) {
             console.error("Failed to update status:", err);
@@ -186,37 +200,24 @@ const AdminDashboard = () => {
 
                     {/* MAP */}
                     <div className="lg:col-span-2 bg-white rounded-2xl border h-[420px] relative overflow-hidden">
-
-                        {/* Map background */}
-                        <div className="absolute inset-0 bg-slate-100 flex items-center justify-center text-slate-400">
-                            Map disabled (No Google)
-                        </div>
-
-                        {/* Cluster markers */}
-                        {clusters.map((cluster, i) => {
-                            const r = cluster[0];
-                            const left = (r.location.lng % 1) * 100;
-                            const top = (r.location.lat % 1) * 100;
-
-                            const isCluster = cluster.length > 1;
-
-                            return (
-                                <div
-                                    key={i}
-                                    style={{ left: `${left}%`, top: `${top}%` }}
-                                    className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                                    onClick={() =>
-                                        isCluster
-                                            ? setSelectedCluster(cluster)
-                                            : setSelectedIncident(r)
-                                    }
-                                >
-                                    <div className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-xs">
-                                        {isCluster ? cluster.length : "•"}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        <AWSMapView
+                            center={[79.0882, 21.1458]} // Default Nagpur [lng, lat]
+                            zoom={12}
+                            markers={clusters.map(cluster => {
+                                const r = cluster[0];
+                                return {
+                                    lat: r.location.lat,
+                                    lng: r.location.lng,
+                                    title: r.type,
+                                    description: r.description,
+                                    color: r.status === "Resolved" ? "#22c55e" : "#ef4444",
+                                    category: r.type,
+                                    data: r
+                                };
+                            })}
+                            onMarkerClick={(incident) => setSelectedIncident(incident)}
+                            style="Standard"
+                        />
                     </div>
 
                     {/* RIGHT PANEL */}
@@ -225,7 +226,7 @@ const AdminDashboard = () => {
                             <div className="bg-white rounded-2xl border p-6 space-y-4">
 
                                 <div className="font-bold text-xl">
-                                    #{selectedIncident.reportId.slice(-6)}
+                                    #{selectedIncident.report_id.slice(-6)}
                                 </div>
 
                                 <div className="text-sm">

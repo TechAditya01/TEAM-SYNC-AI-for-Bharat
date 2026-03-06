@@ -46,20 +46,24 @@ const Profile = () => {
     if (!currentUser) return navigate("/login");
 
     const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
+    // Use sub (Cognito userId) — currentUser.id doesn't exist, use .sub
+    const uid = currentUser.sub || localStorage.getItem("uid") || "";
+    if (!uid) return;
 
-    fetch(`${API}/api/user/${currentUser.id}`)
-      .then(r => r.json())
-      .then(data => {
-        if (!data.user) return;
-
-        setUserData({
-          ...data.user,
-          badges: data.badges || [],
-          reportCount: data.reportCount || 0,
-          points: data.user.points || 0,
-        });
-
-        setWeeklyActivity(data.weeklyActivity || [0, 0, 0, 0, 0, 0, 0]);
+    Promise.all([
+      fetch(`${API}/api/user/${uid}`).then(r => r.json()),
+      fetch(`${API}/api/user/${uid}/achievements`).then(r => r.json()),
+    ])
+      .then(([userData, achData]) => {
+        if (userData.user) {
+          setUserData({
+            ...userData.user,
+            badges: achData.earned || [],
+            reportCount: userData.reportCount || 0,
+            points: achData.totalPoints || userData.user.points || 0,
+          });
+          setWeeklyActivity(userData.weeklyActivity || [0, 0, 0, 0, 0, 0, 0]);
+        }
       })
       .catch(() => toast.error("Failed to load profile"));
   }, [currentUser, navigate]);
@@ -81,9 +85,10 @@ const Profile = () => {
     try {
       const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 
+      const uid = currentUser.sub || localStorage.getItem("uid") || "";
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("userId", currentUser.id);
+      fd.append("userId", uid);
 
       const res = await fetch(`${API}/api/user/upload-avatar`, {
         method: "POST",
@@ -164,13 +169,13 @@ const Profile = () => {
             <ActionRow
               icon={<Shield size={18} />}
               label="Privacy"
-              onClick={() => navigate("/civic/privacy")}
+              onClick={() => navigate("/privacy-security")}
             />
 
             <ActionRow
               icon={<SettingsIcon size={18} />}
               label="Preferences"
-              onClick={() => navigate("/civic/preferences")}
+              onClick={() => navigate("/preferences")}
             />
 
             <button

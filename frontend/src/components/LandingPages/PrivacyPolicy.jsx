@@ -1,35 +1,83 @@
-import React from 'react';
-import { useLanguage } from '../../context/LanguageContext';
-
+import React from "react";
+import { Shield, Database, Lock } from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function PrivacyPolicy() {
-    const { t } = useLanguage();
+const { t } = useLanguage();
 
-    return (
-        <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900 transition-colors duration-300">
+return ( <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors">
 
-            <main className="flex-grow py-16 px-6 max-w-3xl mx-auto w-full">
-                <h1 className="text-3xl font-bold mb-8 text-slate-900 dark:text-white">{t('privacyPolicy')}</h1>
-                <div className="prose prose-slate dark:prose-invert hover:prose-a:text-blue-600">
-                    <p className="text-slate-600 dark:text-slate-400 mb-6">{t('privacyLastUpdated')}</p>
+```
+  <div className="max-w-5xl mx-auto px-6 py-16">
 
-                    <h2 className="text-xl font-bold mt-8 mb-4 text-slate-900 dark:text-white">{t('privacySection1Title')}</h2>
-                    <p className="text-slate-600 dark:text-slate-400 mb-4">{t('privacySection1Text')}</p>
+    {/* Header */}
+    <div className="text-center mb-14">
+      <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-4">
+        {t("privacyPolicy")}
+      </h1>
 
-                    <h2 className="text-xl font-bold mt-8 mb-4 text-slate-900 dark:text-white">{t('privacySection2Title')}</h2>
-                    <p className="text-slate-600 dark:text-slate-400 mb-4">{t('privacySection2Intro')}</p>
-                    <ul className="list-disc pl-5 text-slate-600 dark:text-slate-400 space-y-2 mb-4">
-                        <li>{t('privacyPoint1')}</li>
-                        <li>{t('privacyPoint2')}</li>
-                        <li>{t('privacyPoint3')}</li>
-                        <li>{t('privacyPoint4')}</li>
-                    </ul>
+      <p className="text-gray-600 dark:text-gray-400">
+        {t("privacyLastUpdated")}
+      </p>
+    </div>
 
-                    <h2 className="text-xl font-bold mt-8 mb-4 text-slate-900 dark:text-white">{t('privacySection3Title')}</h2>
-                    <p className="text-slate-600 dark:text-slate-400 mb-4">{t('privacySection3Text')}</p>
-                </div>
-            </main>
+    {/* Section 1 */}
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 mb-8">
 
-        </div>
-    );
+      <div className="flex items-center gap-4 mb-4">
+        <Shield className="text-blue-600" size={32} />
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+          {t("privacySection1Title")}
+        </h2>
+      </div>
+
+      <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+        {t("privacySection1Text")}
+      </p>
+    </div>
+
+    {/* Section 2 */}
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 mb-8">
+
+      <div className="flex items-center gap-4 mb-4">
+        <Database className="text-green-600" size={32} />
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+          {t("privacySection2Title")}
+        </h2>
+      </div>
+
+      <p className="text-gray-600 dark:text-gray-400 mb-4">
+        {t("privacySection2Intro")}
+      </p>
+
+      <ul className="space-y-3 text-gray-600 dark:text-gray-400">
+        <li>• {t("privacyPoint1")}</li>
+        <li>• {t("privacyPoint2")}</li>
+        <li>• {t("privacyPoint3")}</li>
+        <li>• {t("privacyPoint4")}</li>
+      </ul>
+
+    </div>
+
+    {/* Section 3 */}
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
+
+      <div className="flex items-center gap-4 mb-4">
+        <Lock className="text-purple-600" size={32} />
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+          {t("privacySection3Title")}
+        </h2>
+      </div>
+
+      <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+        {t("privacySection3Text")}
+      </p>
+
+    </div>
+
+  </div>
+
+</div>
+
+);
 }

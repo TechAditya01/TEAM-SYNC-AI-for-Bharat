@@ -2,378 +2,722 @@ import React, { useState, useEffect } from "react";
 import {
   Camera,
   MapPin,
-  CheckCircle,
-  AlertTriangle,
-  Trash2,
-  Lightbulb,
-  Droplets,
-  X,
-  Loader2,
-  Search,
   Crosshair,
-  Award,
   Video,
   Mic,
+  Loader2,
+  Brain,
+  CheckCircle,
+  FileText,
+  Plus
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+
+import { motion } from "framer-motion";
+import { useNavigate, Link } from "react-router-dom";
 import CivicLayout from "./CivicLayout";
-import { verifyImageWithAI, submitReportToBackend } from "../../services/backendService";
-import { uploadImage, uploadVideo, uploadAudio } from "../../services/storageService";
+
+import {
+  verifyImageWithAI,
+  verifyVideoWithAI,
+  verifyVoiceWithAI,
+  submitReportToBackend
+} from "../../services/backendService";
+
+import {
+  uploadImage,
+  uploadVideo,
+  uploadAudio
+} from "../../services/storageService";
+
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+
 import { toast } from "react-hot-toast";
 
 const ReportIssue = () => {
+
   const navigate = useNavigate();
 
-  const [mediaType, setMediaType] = useState(null);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [selectedVideo, setSelectedVideo] = useState(null);
-  const [selectedAudio, setSelectedAudio] = useState(null);
+  const [mediaType,setMediaType] = useState(null);
 
-  const [imageFile, setImageFile] = useState(null);
-  const [videoFile, setVideoFile] = useState(null);
-  const [audioFile, setAudioFile] = useState(null);
+  const [selectedImage,setSelectedImage] = useState(null);
+  const [selectedVideo,setSelectedVideo] = useState(null);
+  const [selectedAudio,setSelectedAudio] = useState(null);
 
-  const [aiResult, setAiResult] = useState(null);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [imageFile,setImageFile] = useState(null);
+  const [videoFile,setVideoFile] = useState(null);
+  const [audioFile,setAudioFile] = useState(null);
 
-  const [location, setLocation] = useState({
-    lat: null,
-    lng: null,
-    address: "Detecting location...",
+  const [aiResult,setAiResult] = useState(null);
+  const [analyzing,setAnalyzing] = useState(false);
+
+  const [location,setLocation] = useState({
+    lat:null,
+    lng:null,
+    address:"Detecting location..."
   });
 
-  const [department, setDepartment] = useState("");
-  const [category, setCategory] = useState("");
-
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [submittedReportId, setSubmittedReportId] = useState(null);
+  const [department,setDepartment] = useState("");
+  const [category,setCategory] = useState("");
 
   // =============================
-  // LOCATION — OpenStreetMap
+  // LOCATION
   // =============================
 
-  const fetchAddress = async (lat, lng) => {
-    try {
+  const fetchAddress = async(lat,lng)=>{
+
+    try{
+
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
       );
+
       const data = await res.json();
 
       setLocation({
         lat,
         lng,
-        address: data.display_name || `${lat}, ${lng}`,
+        address:data.display_name
       });
-    } catch {
+
+    }catch{
+
       setLocation({
         lat,
         lng,
-        address: `${lat}, ${lng}`,
+        address:`${lat},${lng}`
       });
+
     }
+
   };
 
-  const detectLocation = () => {
-    if (!navigator.geolocation) return;
+  const detectLocation = ()=>{
 
-    navigator.geolocation.getCurrentPosition((pos) => {
-      fetchAddress(pos.coords.latitude, pos.coords.longitude);
+    if(!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition((pos)=>{
+
+      fetchAddress(
+        pos.coords.latitude,
+        pos.coords.longitude
+      );
+
     });
+
   };
 
-  useEffect(() => {
+  useEffect(()=>{
+
     detectLocation();
-  }, []);
+
+  },[]);
 
   // =============================
-  // MEDIA UPLOAD
+  // IMAGE UPLOAD
   // =============================
 
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = async(e)=>{
+
     const file = e.target.files[0];
-    if (!file) return;
+    if(!file) return;
 
     setMediaType("image");
     setImageFile(file);
 
     const reader = new FileReader();
-    reader.onloadend = () => setSelectedImage(reader.result);
+
+    reader.onloadend = ()=>{
+      setSelectedImage(reader.result);
+    };
+
     reader.readAsDataURL(file);
 
     setAnalyzing(true);
 
-    try {
-      const result = await verifyImageWithAI(file);
+    try{
+
+      const result = await verifyImageWithAI(file,category,location);
+
       setAiResult(result);
-    } catch {
+
+      if(result.detectedCategory)
+        setCategory(result.detectedCategory);
+
+      if(result.suggestedDepartment)
+        setDepartment(result.suggestedDepartment);
+
+    }catch{
+
       toast.error("AI analysis failed");
-    } finally {
-      setAnalyzing(false);
+
     }
+
+    setAnalyzing(false);
+
   };
 
-  const handleVideoUpload = (e) => {
+  // =============================
+  // VIDEO UPLOAD
+  // =============================
+
+  const handleVideoUpload = async(e)=>{
+
     const file = e.target.files[0];
-    if (!file) return;
+    if(!file) return;
 
     setMediaType("video");
     setVideoFile(file);
 
     const reader = new FileReader();
-    reader.onloadend = () => setSelectedVideo(reader.result);
+
+    reader.onloadend = ()=>{
+      setSelectedVideo(reader.result);
+    };
+
     reader.readAsDataURL(file);
+
+    setAnalyzing(true);
+
+    try{
+
+      const result = await verifyVideoWithAI(file,category,location);
+
+      setAiResult(result);
+
+      if(result.detectedIssueType)
+        setCategory(result.detectedIssueType);
+
+    }catch{
+
+      toast.error("Video AI analysis failed");
+
+    }
+
+    setAnalyzing(false);
+
   };
 
-  const handleAudioUpload = (e) => {
+  // =============================
+  // AUDIO UPLOAD
+  // =============================
+
+  const handleAudioUpload = async(e)=>{
+
     const file = e.target.files[0];
-    if (!file) return;
+    if(!file) return;
 
     setMediaType("audio");
     setAudioFile(file);
 
     const reader = new FileReader();
-    reader.onloadend = () => setSelectedAudio(reader.result);
+
+    reader.onloadend = ()=>{
+      setSelectedAudio(reader.result);
+    };
+
     reader.readAsDataURL(file);
+
+    setAnalyzing(true);
+
+    try{
+
+      const result = await verifyVoiceWithAI(file,category,location);
+
+      setAiResult(result);
+
+      if(result.detectedIssueType)
+        setCategory(result.detectedIssueType);
+
+    }catch{
+
+      toast.error("Audio AI analysis failed");
+
+    }
+
+    setAnalyzing(false);
+
   };
 
   // =============================
-  // SUBMIT
+  // SUBMIT REPORT
   // =============================
 
-  const handleSubmit = async (e) => {
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submittedreport_id, setSubmittedreport_id] = useState(null);
+
+  const handleSubmit = async(e)=>{
+
     e.preventDefault();
 
-    if (!location.lat) {
+    if(!location.lat){
+
       toast.error("Location required");
       return;
+
     }
 
-    try {
-      let mediaUrl = null;
-      let finalType = mediaType;
+    try{
 
-      if (imageFile) mediaUrl = await uploadImage(imageFile, "reports");
-      if (videoFile) mediaUrl = await uploadVideo(videoFile, "reports");
-      if (audioFile) mediaUrl = await uploadAudio(audioFile, "reports");
+      let mediaUrl = null;
+
+      if(imageFile)
+        mediaUrl = await uploadImage(imageFile,"reports");
+
+      if(videoFile)
+        mediaUrl = await uploadVideo(videoFile,"reports");
+
+      if(audioFile)
+        mediaUrl = await uploadAudio(audioFile,"reports");
 
       const reportData = {
-        type: category || "General",
-        department,
-        description: e.target.description.value,
+
+        type:category || "General",
+
+        department:department || "General",
+
+        description:e.target.description.value,
+
         location,
+
         mediaUrl,
-        mediaType: finalType,
-        aiAnalysis: aiResult?.detected || "",
-        aiConfidence: aiResult?.confidence || 0,
-        status: "Pending",
-        timestamp: Date.now(),
-        userId: localStorage.getItem("uid"),
-        userName: localStorage.getItem("name") || "Citizen",
+
+        mediaType,
+
+        aiConfidence:aiResult?.confidence || 0,
+
+        status:"Pending",
+
+        timestamp:Date.now(),
+
+        userId:localStorage.getItem("uid"),
+
+        userName:localStorage.getItem("name") || "Citizen"
+
       };
 
-      const res = await submitReportToBackend(reportData);
+      const result = await submitReportToBackend(reportData);
 
-      setSubmittedReportId(res.id || "N/A");
-      setShowSuccessPopup(true);
+      setSubmittedreport_id(result?.id || null);
+      setSubmitSuccess(true);
+      toast.success("Report submitted successfully!");
 
-      setTimeout(() => {
-        navigate("/civic/my-reports");
-      }, 2500);
-    } catch (err) {
+    }catch{
+
       toast.error("Submit failed");
+
     }
+
+  };
+
+  const handleSubmitAnother = ()=>{
+    // Reset form state
+    setSubmitSuccess(false);
+    setSubmittedreport_id(null);
+    setSelectedImage(null);
+    setSelectedVideo(null);
+    setSelectedAudio(null);
+    setImageFile(null);
+    setVideoFile(null);
+    setAudioFile(null);
+    setAiResult(null);
+    setCategory("");
+    setDepartment("");
+    setMediaType(null);
+    // Reset form fields
+    const form = document.querySelector('form');
+    if(form) form.reset();
   };
 
   // =============================
   // UI
   // =============================
 
-  return (
-    <CivicLayout>
-      {/* HEADER */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <div className="p-3 bg-blue-600 rounded-lg text-white">
-            <Camera size={28} />
-          </div>
-          Report Issue
-        </h1>
-        <p className="text-slate-500 ml-16">
-          Help improve your community with AI reporting
-        </p>
+ return (
+<CivicLayout>
+
+<div className="max-w-7xl mx-auto">
+
+{/* HEADER */}
+
+<div className="mb-10">
+
+<h1 className="text-4xl font-bold flex items-center gap-4">
+
+<div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl text-white shadow-lg">
+
+<Camera size={30}/>
+
+</div>
+
+Report Civic Issue
+
+</h1>
+
+<p className="text-gray-500 mt-2 ml-16">
+
+Upload evidence and let AI verify the issue instantly
+
+</p>
+
+</div>
+
+{/* SUCCESS MESSAGE */}
+{submitSuccess && (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mb-8 bg-green-50 border border-green-200 rounded-2xl p-8 text-center"
+  >
+    <div className="flex justify-center mb-4">
+      <div className="p-4 bg-green-500 rounded-full">
+        <CheckCircle size={48} className="text-white" />
       </div>
+    </div>
+    <h2 className="text-2xl font-bold text-green-800 mb-2">
+      Report Submitted Successfully!
+    </h2>
+    <p className="text-green-600 mb-6">
+      Your civic issue has been reported and will be reviewed by the authorities.
+    </p>
+    <div className="flex justify-center gap-4">
+      <Link
+        to="/my-reports"
+        className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition"
+      >
+        <FileText size={20} />
+        View My Reports
+      </Link>
+      <button
+        onClick={handleSubmitAnother}
+        className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition"
+      >
+        <Plus size={20} />
+        Submit Another Report
+      </button>
+    </div>
+  </motion.div>
+)}
 
-      <div className="grid lg:grid-cols-5 gap-6">
-        {/* LEFT — MEDIA */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg p-6 border">
-            <h3 className="font-bold mb-4">Upload Evidence</h3>
+{/* HIDE FORM WHEN SUCCESS */}
+{!submitSuccess && (
+<div className="grid lg:grid-cols-5 gap-8">
 
-            {!selectedImage && !selectedVideo && !selectedAudio && (
-              <div className="grid grid-cols-3 gap-4">
-                <label className="upload-box">
-                  <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
-                  <Camera size={32} />
-                  <span>Photo</span>
-                </label>
+{/* LEFT SIDE */}
 
-                <label className="upload-box">
-                  <input type="file" hidden accept="video/*" onChange={handleVideoUpload} />
-                  <Video size={32} />
-                  <span>Video</span>
-                </label>
+<div className="lg:col-span-2 space-y-6">
 
-                <label className="upload-box">
-                  <input type="file" hidden accept="audio/*" onChange={handleAudioUpload} />
-                  <Mic size={32} />
-                  <span>Audio</span>
-                </label>
-              </div>
-            )}
+{/* MEDIA CARD */}
 
-            {selectedImage && (
-              <img src={selectedImage} className="rounded-lg mt-4" />
-            )}
-            {selectedVideo && (
-              <video src={selectedVideo} controls className="rounded-lg mt-4" />
-            )}
-            {selectedAudio && (
-              <audio src={selectedAudio} controls className="mt-4 w-full" />
-            )}
+<div className="bg-white shadow-lg rounded-2xl p-6 border">
 
-            {analyzing && (
-              <div className="flex items-center gap-2 mt-4 text-blue-600">
-                <Loader2 className="animate-spin" size={18} />
-                AI analyzing…
-              </div>
-            )}
-          </div>
-        </div>
+<h3 className="font-bold text-lg mb-4">
 
-        {/* RIGHT — FORM */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* LOCATION */}
-          <div className="bg-white p-6 rounded-lg border">
-            <div className="flex justify-between mb-3">
-              <h3 className="font-bold flex gap-2 items-center">
-                <MapPin size={18} />
-                Location
-              </h3>
-              <button
-                type="button"
-                onClick={detectLocation}
-                className="text-blue-600"
-              >
-                <Crosshair size={18} />
-              </button>
-            </div>
+Upload Evidence
 
-            <div className="h-64 rounded-lg overflow-hidden border">
-              {location.lat ? (
-                <MapContainer
-                  center={[location.lat, location.lng]}
-                  zoom={15}
-                  style={{ width: "100%", height: "100%" }}
-                >
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={[location.lat, location.lng]} />
-                </MapContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  Detecting location…
-                </div>
-              )}
-            </div>
+</h3>
 
-            <div className="text-xs mt-2 text-slate-500">
-              {location.address}
-            </div>
-          </div>
+<div className="grid grid-cols-3 gap-4">
 
-          {/* DEPARTMENT */}
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="font-bold mb-3">Department</h3>
-            <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full border rounded-lg p-3"
-            >
-              <option value="">Select</option>
-              <option>Municipal/Waste</option>
-              <option>Electricity Board</option>
-              <option>Water Supply</option>
-              <option>Traffic</option>
-              <option>Police</option>
-              <option>Fire & Safety</option>
-            </select>
-          </div>
+<label className="upload-card">
 
-          {/* DESCRIPTION */}
-          <div className="bg-white p-6 rounded-lg border">
-            <textarea
-              name="description"
-              placeholder="Describe issue..."
-              className="w-full border rounded-lg p-3 h-24"
-            />
-          </div>
+<input hidden type="file" accept="image/*" onChange={handleImageUpload}/>
 
-          {/* SUBMIT */}
-          <button
-            onClick={handleSubmit}
-            disabled={!department || !mediaType}
-            className="w-full bg-blue-600 text-white py-4 rounded-lg font-bold"
-          >
-            Submit Report
-          </button>
-        </div>
-      </div>
+<Camera size={28}/>
 
-      {/* SUCCESS POPUP */}
-      <AnimatePresence>
-        {showSuccessPopup && (
-          <motion.div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <motion.div
-              className="bg-white p-8 rounded-xl text-center"
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-            >
-              <CheckCircle size={48} className="text-blue-600 mx-auto mb-3" />
-              <h2 className="font-bold text-xl mb-2">
-                Report Submitted!
-              </h2>
-              <p>ID: {submittedReportId}</p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+<p>Photo</p>
 
-      {/* STYLE */}
-      <style jsx>{`
-        .upload-box {
-          border: 2px dashed #cbd5e1;
-          border-radius: 12px;
-          height: 140px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          gap: 6px;
-        }
-        .upload-box:hover {
-          border-color: #2563eb;
-          background: #eff6ff;
-        }
-      `}</style>
-    </CivicLayout>
-  );
+</label>
+
+<label className="upload-card">
+
+<input hidden type="file" accept="video/*" onChange={handleVideoUpload}/>
+
+<Video size={28}/>
+
+<p>Video</p>
+
+</label>
+
+<label className="upload-card">
+
+<input hidden type="file" accept="audio/*" onChange={handleAudioUpload}/>
+
+<Mic size={28}/>
+
+<p>Voice</p>
+
+</label>
+
+</div>
+
+{/* MEDIA PREVIEW */}
+
+{selectedImage &&
+
+<img src={selectedImage} className="mt-4 rounded-xl shadow"/>}
+
+{selectedVideo &&
+
+<video src={selectedVideo} controls className="mt-4 rounded-xl shadow"/>}
+
+{selectedAudio &&
+
+<audio src={selectedAudio} controls className="mt-4 w-full"/>}
+
+{/* AI LOADING */}
+
+{analyzing &&
+
+<div className="flex items-center gap-2 mt-4 text-blue-600">
+
+<Loader2 className="animate-spin"/>
+
+AI analyzing...
+
+</div>
+
+}
+
+{/* AI RESULT */}
+
+{aiResult &&
+
+<motion.div
+
+initial={{opacity:0,y:10}}
+
+animate={{opacity:1,y:0}}
+
+className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border rounded-xl">
+
+<div className="flex items-center gap-2 font-semibold text-purple-700">
+
+<Brain size={18}/>
+
+AI Analysis Result
+
+</div>
+
+<div className="mt-2 text-sm">
+
+Confidence Score
+
+</div>
+
+<div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+
+<div
+
+className="bg-green-500 h-2 rounded-full"
+
+style={{width:`${aiResult.confidence || 80}%`}}
+
+></div>
+
+</div>
+
+<p className="text-sm mt-1 font-medium">
+
+{aiResult.confidence || 80}% confidence
+
+</p>
+
+</motion.div>
+
+}
+
+</div>
+
+</div>
+
+{/* RIGHT SIDE */}
+
+<div className="lg:col-span-3 space-y-6">
+
+{/* LOCATION */}
+
+<div className="bg-white shadow-lg rounded-2xl p-6 border">
+
+<div className="flex justify-between mb-4">
+
+<h3 className="font-bold flex items-center gap-2">
+
+<MapPin size={18}/>
+
+Issue Location
+
+</h3>
+
+<div className="flex gap-3">
+
+<button
+
+onClick={detectLocation}
+
+type="button"
+
+className="flex items-center gap-1 text-blue-600">
+
+<Crosshair size={16}/>
+
+Auto Detect
+
+</button>
+
+</div>
+
+</div>
+
+<div className="h-72 rounded-xl overflow-hidden border">
+
+{location.lat ?
+
+<MapContainer
+
+center={[location.lat,location.lng]}
+
+zoom={16}
+
+style={{height:"100%",width:"100%"}}
+
+>
+
+<TileLayer
+
+url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+
+/>
+
+<Marker
+
+draggable
+
+position={[location.lat,location.lng]}
+
+eventHandlers={{
+
+dragend:(e)=>{
+
+const lat = e.target.getLatLng().lat
+
+const lng = e.target.getLatLng().lng
+
+fetchAddress(lat,lng)
+
+}
+
+}}
+
+/>
+
+</MapContainer>
+
+:
+
+<div className="flex items-center justify-center h-full">
+
+Detecting location...
+
+</div>
+
+}
+
+</div>
+
+<p className="text-xs mt-2 text-gray-500">
+
+{location.address}
+
+</p>
+
+</div>
+
+{/* FORM */}
+
+<form
+
+onSubmit={handleSubmit}
+
+className="bg-white shadow-lg rounded-2xl p-6 border space-y-4">
+
+<h3 className="font-bold text-lg">
+
+Issue Details
+
+</h3>
+
+<select
+
+value={department}
+
+onChange={(e)=>setDepartment(e.target.value)}
+
+className="w-full border rounded-lg p-3">
+
+<option value="">Select Department</option>
+
+<option>Municipal/Waste</option>
+
+<option>Electricity Board</option>
+
+<option>Water Supply</option>
+
+<option>Traffic</option>
+
+<option>Police</option>
+
+<option>Fire & Safety</option>
+
+</select>
+
+<textarea
+
+name="description"
+
+placeholder="Describe the issue..."
+
+className="w-full border rounded-lg p-3 h-24"
+
+/>
+
+<button
+
+type="submit"
+
+disabled={analyzing}
+
+className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:scale-[1.02] transition">
+
+{analyzing ?
+
+<span className="flex justify-center gap-2">
+
+<Loader2 className="animate-spin"/>
+
+Analyzing...
+
+</span>
+
+:
+
+"Submit Report"
+
+}
+
+</button>
+
+</form>
+
+</div>
+
+</div>
+)}
+
+</div>
+
+</CivicLayout>
+);
 };
 
 export default ReportIssue;

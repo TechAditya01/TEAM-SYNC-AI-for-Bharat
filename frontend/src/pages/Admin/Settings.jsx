@@ -10,22 +10,18 @@ import {
   Sun,
   Laptop,
   Palette,
-  Save
+  Save,
+  Loader2
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-
-/* ---------- MOCK OFFICER ---------- */
-const mockOfficer = {
-  firstName: "Manish",
-  lastName: "Kumar",
-  department: "Sanitation",
-  id: "R-0923-7782"
-};
+import { useAuth } from "../../context/AuthContext";
 
 const Settings = () => {
+  const { user } = useAuth();
   const [officer, setOfficer] = useState(null);
   const [theme, setTheme] = useState("dark");
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
   const [notifSettings, setNotifSettings] = useState({
     aiAnomalies: true,
@@ -33,21 +29,117 @@ const Settings = () => {
     smsAlerts: false
   });
 
-  /* ---------- LOAD OFFICER ---------- */
+  /* ---------- LOAD OFFICER FROM API ---------- */
   useEffect(() => {
-    // replace with GET /api/officer/me
-    setTimeout(() => setOfficer(mockOfficer), 300);
-  }, []);
+    if (!user) return;
 
-  const handleSave = () => {
+    const fetchOfficerProfile = async () => {
+      try {
+        const API_BASE = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+        const res = await fetch(`${API_BASE}/api/officer/me`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setOfficer({
+            firstName: data.firstName || data.name?.split(' ')[0] || 'Admin',
+            lastName: data.lastName || data.name?.split(' ').slice(1).join(' ') || '',
+            department: data.department || 'Operations',
+            id: data.officerId || data.id || `R-${Date.now()}`,
+            email: data.email || '',
+            phoneNumber: data.phoneNumber || '',
+            designation: data.designation || data.role || 'ADMIN'
+          });
+          
+          // Load saved settings if available
+          if (data.preferences) {
+            setNotifSettings({
+              aiAnomalies: data.preferences.aiAnomalies ?? true,
+              directMessaging: data.preferences.directMessaging ?? true,
+              smsAlerts: data.preferences.smsAlerts ?? false
+            });
+            setTheme(data.preferences.theme || 'dark');
+          }
+        } else {
+          throw new Error('Failed to fetch officer profile');
+        }
+      } catch (err) {
+        console.error('Failed to load officer:', err);
+        toast.error('Failed to load profile');
+        // Fallback to user context
+        setOfficer({
+          firstName: user.firstName || user.name?.split(' ')[0] || 'Admin',
+          lastName: user.lastName || user.name?.split(' ').slice(1).join(' ') || '',
+          department: user.department || 'Operations',
+          id: user.sub || `R-${Date.now()}`,
+          email: user.email || '',
+          phoneNumber: user.phoneNumber || '',
+          designation: user.designation || user.role || 'ADMIN'
+        });
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    fetchOfficerProfile();
+  }, [user]);
+
+  const handleSave = async () => {
     setLoading(true);
 
-    // replace with PUT /api/settings
-    setTimeout(() => {
+    try {
+      const API_BASE = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+      
+      const payload = {
+        preferences: {
+          aiAnomalies: notifSettings.aiAnomalies,
+          directMessaging: notifSettings.directMessaging,
+          smsAlerts: notifSettings.smsAlerts,
+          theme: theme
+        },
+        updatedAt: Date.now()
+      };
+
+      const res = await fetch(`${API_BASE}/api/settings`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        toast.success("System Configuration Saved");
+        
+        // Refresh profile to get updated settings
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        throw new Error('Failed to save settings');
+      }
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+      toast.error("Failed to save settings");
+    } finally {
       setLoading(false);
-      toast.success("System Configuration Saved");
-    }, 800);
+    }
   };
+
+  if (fetching) return (
+    <AdminLayout>
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <Loader2 size={36} className="animate-spin text-blue-600" />
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+          Loading Settings...
+        </p>
+      </div>
+    </AdminLayout>
+  );
 
   if (!officer) return null;
 

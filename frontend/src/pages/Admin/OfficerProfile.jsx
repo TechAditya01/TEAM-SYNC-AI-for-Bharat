@@ -9,8 +9,13 @@ import {
   CheckCircle,
   Shield,
   Calendar,
-  Activity
+  Activity,
+  User,
+  LogOut,
+  Edit
 } from "lucide-react";
+import { getOfficerProfile, logout } from "../../services/backendService";
+import { toast } from "react-hot-toast";
 
 /* -------- MOCK OFFICER (replace with API) -------- */
 const mockOfficer = {
@@ -24,14 +29,56 @@ const mockOfficer = {
 
 const OfficerProfile = () => {
   const [officer, setOfficer] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   /* -------- LOAD FROM API -------- */
   useEffect(() => {
-    // replace with GET /api/officer/me
-    setTimeout(() => {
-      setOfficer(mockOfficer);
-    }, 300);
+    const fetchOfficer = async () => {
+      try {
+        setLoading(true);
+        const data = await getOfficerProfile();
+
+        if (data && !data.error) {
+          // Map backend fields to the component UI structure
+          setOfficer({
+            firstName: data.firstName || data.name?.split(' ')[0] || "Admin",
+            lastName: data.lastName || data.name?.split(' ').slice(1).join(' ') || "Officer",
+            role: data.role || "Admin Officer",
+            department: data.department || "Municipal",
+            email: data.email || localStorage.getItem("email") || "admin@city.gov",
+            phoneNumber: data.phoneNumber || data.phone || "Not provided",
+            stats: data.stats || {
+              resolved: 1284,
+              responseTime: "12m 30s",
+              rating: "4.9/5",
+              hours: "142 hrs"
+            }
+          });
+        } else {
+          setOfficer(mockOfficer); // fallback
+        }
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+        setOfficer(mockOfficer); // fall back to mock data if not logged in or API fails
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOfficer();
   }, []);
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  if (loading) return (
+    <AdminLayout>
+      <div className="flex items-center justify-center h-[50vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    </AdminLayout>
+  );
 
   if (!officer) return null;
 
@@ -63,6 +110,21 @@ const OfficerProfile = () => {
               </p>
             </div>
 
+            {/* Actions */}
+            <div className="flex flex-col gap-3 self-stretch md:self-auto justify-center">
+              <button className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors">
+                <Edit size={18} />
+                Edit Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold transition-colors"
+              >
+                <LogOut size={18} />
+                Sign Out
+              </button>
+            </div>
+
             {/* Contact */}
             <div className="flex flex-col gap-3">
               <InfoBadge icon={<Mail size={16} />} label={officer.email} />
@@ -82,10 +144,10 @@ const OfficerProfile = () => {
               </h3>
 
               <div className="space-y-4">
-                <StatRow label="Incidents Resolved" value="1,284" icon={<CheckCircle size={18} />} />
-                <StatRow label="Response Time" value="12m 30s" icon={<Clock size={18} />} />
-                <StatRow label="Citizen Rating" value="4.9/5" icon={<Award size={18} />} />
-                <StatRow label="Time on Duty" value="142 hrs" icon={<Calendar size={18} />} />
+                <StatRow label="Incidents Resolved" value={officer.stats?.resolved || "1,284"} icon={<CheckCircle size={18} />} />
+                <StatRow label="Response Time" value={officer.stats?.responseTime || "12m 30s"} icon={<Clock size={18} />} />
+                <StatRow label="Citizen Rating" value={officer.stats?.rating || "4.9/5"} icon={<Award size={18} />} />
+                <StatRow label="Time on Duty" value={officer.stats?.hours || "142 hrs"} icon={<Calendar size={18} />} />
               </div>
             </div>
 
@@ -142,11 +204,10 @@ const OfficerProfile = () => {
 
 const Badge = ({ text, color, pulse }) => (
   <span
-    className={`px-3 py-1 text-xs font-black uppercase rounded-lg ${
-      color === "blue"
+    className={`px-3 py-1 text-xs font-black uppercase rounded-lg ${color === "blue"
         ? "bg-blue-50 text-blue-600"
         : "bg-green-50 text-green-600"
-    }`}
+      }`}
   >
     {pulse && <span className="w-2 h-2 bg-green-500 rounded-full mr-1 inline-block animate-pulse" />}
     {text}

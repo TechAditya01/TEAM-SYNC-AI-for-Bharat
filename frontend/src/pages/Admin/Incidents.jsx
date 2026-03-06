@@ -3,50 +3,61 @@ import { Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import {
     Search, Filter, MapPin, Calendar,
-    ExternalLink, ArrowRight, List, Grid
+    ExternalLink, ArrowRight, List, Grid, Loader2
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { getAllReports } from "../../services/backendService";
+import { toast } from "react-hot-toast";
 
-/* ---------------- MOCK DATA ---------------- */
-const mockIncidents = [
-    {
-        id: "12345678",
-        userName: "Rahul",
-        category: "Garbage",
-        priority: "High",
-        status: "Pending",
-        description: "Garbage pile near road",
-        createdAt: Date.now(),
-        imageUrl: "https://placehold.co/600x400",
-        location: { address: "Sector 4, City" }
-    },
-    {
-        id: "87654321",
-        userName: "Amit",
-        category: "Water Leak",
-        priority: "Normal",
-        status: "Accepted",
-        description: "Water leakage",
-        createdAt: Date.now(),
-        imageUrl: "https://placehold.co/600x400",
-        location: { address: "MG Road" }
-    }
-];
+const STATUS_COLORS = {
+    Pending: "bg-orange-50 text-orange-600",
+    Accepted: "bg-blue-50 text-blue-600",
+    Resolved: "bg-green-50 text-green-600",
+    Rejected: "bg-red-50 text-red-600",
+};
 
 const IncidentList = () => {
+    const { user } = useAuth();
     const [incidents, setIncidents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [viewMode, setViewMode] = useState("grid");
 
-    /* ---------------- LOAD ---------------- */
+    /* ---------------- LOAD FROM API ---------------- */
     useEffect(() => {
-        // replace with API later
-        setTimeout(() => {
-            setIncidents(mockIncidents);
-            setLoading(false);
-        }, 400);
-    }, []);
+        if (!user) return;
+
+        const fetchIncidents = async () => {
+            try {
+                setLoading(true);
+                const data = await getAllReports({
+                    department: user.department,
+                    municipality: user.municipality || ""
+                });
+
+                const list = Array.isArray(data) ? data : (data.reports || []);
+                setIncidents(list.map(r => ({
+                    id: r.report_id || r.id,
+                    userName: r.userName || "Citizen",
+                    category: r.type || r.category || "General",
+                    priority: r.priority || "Normal",
+                    status: r.status || "Pending",
+                    description: r.description || "No description provided",
+                    createdAt: r.createdAt || r.timestamp || Date.now(),
+                    imageUrl: r.mediaUrl || 'https://placehold.co/600x400/e2e8f0/94a3b8?text=No+Image',
+                    location: r.location || {},
+                })));
+            } catch (err) {
+                console.error('Failed to load incidents:', err);
+                toast.error("Failed to load incidents");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchIncidents();
+    }, [user]);
 
     /* ---------------- FILTER ---------------- */
     const filteredIncidents = incidents.filter(i => {
@@ -80,8 +91,8 @@ const IncidentList = () => {
                         <button
                             onClick={() => setViewMode("grid")}
                             className={`p-2 rounded-lg ${viewMode === "grid"
-                                    ? "bg-blue-600 text-white"
-                                    : "text-slate-400"
+                                ? "bg-blue-600 text-white"
+                                : "text-slate-400"
                                 }`}
                         >
                             <Grid size={18} />
@@ -89,8 +100,8 @@ const IncidentList = () => {
                         <button
                             onClick={() => setViewMode("list")}
                             className={`p-2 rounded-lg ${viewMode === "list"
-                                    ? "bg-blue-600 text-white"
-                                    : "text-slate-400"
+                                ? "bg-blue-600 text-white"
+                                : "text-slate-400"
                                 }`}
                         >
                             <List size={18} />
@@ -130,7 +141,12 @@ const IncidentList = () => {
                 {/* GRID VIEW */}
                 {viewMode === "grid" ? (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredIncidents.map(incident => (
+                        {loading && (
+                            <div className="col-span-3 flex justify-center py-20">
+                                <Loader2 className="animate-spin text-blue-600" size={36} />
+                            </div>
+                        )}
+                        {!loading && filteredIncidents.map(incident => (
                             <div
                                 key={incident.id}
                                 className="bg-white rounded-3xl border overflow-hidden flex flex-col hover:shadow-xl transition"
@@ -141,6 +157,7 @@ const IncidentList = () => {
                                         src={incident.imageUrl}
                                         className="w-full h-full object-cover"
                                         alt=""
+                                        onError={e => { e.target.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=No+Image'; }}
                                     />
                                 </div>
 
@@ -156,7 +173,7 @@ const IncidentList = () => {
                                             </div>
                                         </div>
 
-                                        <div className="text-xs px-2 py-1 bg-orange-50 text-orange-600 rounded">
+                                        <div className={`text-xs px-2 py-1 rounded ${STATUS_COLORS[incident.status] || 'bg-slate-50 text-slate-600'}`}>
                                             {incident.status}
                                         </div>
                                     </div>
@@ -167,12 +184,12 @@ const IncidentList = () => {
 
                                     <div className="text-xs text-slate-500 flex gap-2 mb-6">
                                         <MapPin size={14} />
-                                        {incident.location?.address}
+                                        {incident.location?.address || 'Location not set'}
                                     </div>
 
                                     <div className="mt-auto flex justify-between items-center">
                                         <Link
-                                            to={`/admin/incident/${incident.id}`}
+                                            to={`/admin/incidents/${incident.id}`}
                                             className="text-xs font-bold flex gap-1 items-center"
                                         >
                                             View <ArrowRight size={14} />
@@ -232,7 +249,7 @@ const IncidentList = () => {
 
                                         <td className="px-6 py-4 text-right">
                                             <Link
-                                                to={`/admin/incident/${incident.id}`}
+                                                to={`/admin/incidents/${incident.id}`}
                                                 className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold"
                                             >
                                                 Review

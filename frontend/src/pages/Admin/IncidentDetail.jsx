@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import { toast } from "react-hot-toast";
+import { getReportById, updateReportStatus } from "../../services/backendService";
 
 /* ---------------- MOCK DATA ---------------- */
 const mockReports = [
@@ -44,33 +45,61 @@ const IncidentDetail = () => {
     useEffect(() => {
         if (!cleanId) return;
 
-        // Replace with API later
-        const r = mockReports.find(x => x.id === cleanId);
+        const fetchReport = async () => {
+            try {
+                setLoading(true);
+                const data = await getReportById(cleanId);
+                // Map API data back to UI expected names
+                setReport({
+                    id: data.report_id || cleanId,
+                    category: data.type || "General",
+                    department: data.department || "General",
+                    status: data.status || "Pending",
+                    createdAt: data.createdAt || data.timestamp || Date.now(),
+                    aiConfidence: data.aiConfidence || data.aiAnalysis?.confidence || 0,
+                    aiAnalysis: data.aiAnalysis?.description || data.description || "AI analysis complete.",
+                    userName: data.userName || "Citizen",
+                    description: data.description || "",
+                    imageUrl: data.mediaUrl || "https://placehold.co/800x450",
+                    location: data.location || { lat: 21.1458, lng: 79.0882, address: "Unknown location" }
+                });
+            } catch (error) {
+                console.error("Error fetching report:", error);
+                toast.error("Failed to load report details from server");
+                setReport(null);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        setTimeout(() => {
-            setReport(r || null);
-            setLoading(false);
-        }, 500);
+        fetchReport();
     }, [cleanId]);
 
     /* ---------------- ACTION ---------------- */
-    const handleAction = newStatus => {
+    const handleAction = async (newStatus) => {
         const statusLabel =
             newStatus === "Rejected"
                 ? "Rejected - Unconventional Report"
                 : newStatus;
 
-        setReport(prev => ({
-            ...prev,
-            status: statusLabel
-        }));
+        try {
+            await updateReportStatus(cleanId, statusLabel, `Status changed to ${statusLabel}`);
 
-        toast.success(`Report ${newStatus}`);
+            setReport(prev => ({
+                ...prev,
+                status: statusLabel
+            }));
 
-        if (newStatus === "Accepted") {
-            navigate("/admin/broadcast", {
-                state: { incidentId: cleanId }
-            });
+            toast.success(`Report ${newStatus}`);
+
+            if (newStatus === "Accepted") {
+                navigate("/admin/broadcast", {
+                    state: { incidentId: cleanId }
+                });
+            }
+        } catch (error) {
+            console.error("Failed to update status", error);
+            toast.error("Failed to update report status");
         }
     };
 

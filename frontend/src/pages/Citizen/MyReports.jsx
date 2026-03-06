@@ -14,28 +14,51 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import CivicLayout from "./CivicLayout";
+import { useAuth } from "../../context/AuthContext";
 
 const MyReports = () => {
+  const { user } = useAuth();
   const [filter, setFilter] = useState("All");
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  /* ---------- USER (NO FIREBASE) ---------- */
-  const userId = "demo-user-1"; // replace with auth later
+  /* ---------- USER FROM AUTH CONTEXT ---------- */
+  const userId = user?.sub || localStorage.getItem("uid") || "";
 
   useEffect(() => {
+    if (!userId) return;
+
     const fetchReports = async () => {
       const API_BASE_URL =
         import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 
       const url = `${API_BASE_URL}/api/reports/user/${userId}`;
+      console.log("Fetching reports from:", url);
+      console.log("UserId:", userId);
 
       try {
         const res = await fetch(url);
+        console.log("Response status:", res.status);
         const data = await res.json();
+        console.log("Raw API Response:", data);
 
         if (res.ok && data.reports) {
+          console.log(`Found ${data.reports.length} reports`);
+          
+          // Log each report's media information
+          data.reports.forEach((r, index) => {
+            console.log(`Report ${index + 1}:`, {
+              id: r.id,
+              type: r.type,
+              mediaUrl: r.mediaUrl,
+              imageUrl: r.imageUrl,
+              videoUrl: r.videoUrl,
+              audioUrl: r.audioUrl,
+              mediaType: r.mediaType
+            });
+          });
+          
           setReports(
             data.reports.map((r) => ({
               id: r.id,
@@ -51,9 +74,13 @@ const MyReports = () => {
               department: r.department || "General",
               mediaType: r.mediaType || "image",
               mediaUrl: r.mediaUrl || r.imageUrl || null,
+              imageUrl: r.imageUrl || r.mediaUrl || null,
+              videoUrl: r.videoUrl || r.mediaUrl || null,
+              audioUrl: r.audioUrl || r.mediaUrl || null,
             }))
           );
         } else {
+          console.log("No reports found or error in response");
           setReports([]);
         }
       } catch (e) {
@@ -144,7 +171,7 @@ const MyReports = () => {
         </div>
 
         <Link
-          to="/civic/report"
+          to="/report"
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg"
         >
           <Plus size={20} /> New Report
@@ -170,9 +197,26 @@ const MyReports = () => {
       </div>
 
       {/* List */}
+      {!userId && !loading && (
+        <div className="text-center py-10 bg-yellow-50 rounded-lg">
+          <p className="text-yellow-700">Please log in to view your reports.</p>
+          <p className="text-sm text-yellow-600 mt-2">User ID not found. Try logging out and back in.</p>
+        </div>
+      )}
+      
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="animate-spin" size={40} />
+        </div>
+      ) : filteredReports.length === 0 ? (
+        <div className="text-center py-10 bg-gray-50 rounded-lg">
+          <p className="text-gray-500 mb-4">No reports found.</p>
+          <Link
+            to="/report"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg"
+          >
+            <Plus size={18} /> Create Your First Report
+          </Link>
         </div>
       ) : (
         filteredReports.map((report) => {
@@ -204,7 +248,7 @@ const MyReports = () => {
                 </div>
 
                 <Link
-                  to={`/civic/report/${report.id}`}
+                  to={`/report/${report.id}`}
                   className="p-3 bg-slate-100 rounded-lg"
                 >
                   <ArrowRight size={18} />

@@ -4,8 +4,10 @@ import {
     Tooltip, ResponsiveContainer, BarChart, Bar,
     PieChart, Pie, Cell
 } from 'recharts';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import AdminLayout from './AdminLayout';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
 const mockReports = [
     {
@@ -36,15 +38,46 @@ const mockReports = [
 ];
 
 const Analytics = () => {
+    const { user } = useAuth();
     const [lineData, setLineData] = useState([]);
     const [pieData, setPieData] = useState([]);
     const [totalReports, setTotalReports] = useState(0);
     const [barData, setBarData] = useState([]);
     const [heatmapData, setHeatmapData] = useState([]);
     const [maxHeat, setMaxHeat] = useState(1);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const reportsArray = mockReports; // 👉 replace later with API data
+        if (!user) return;
+
+        const fetchAnalytics = async () => {
+            try {
+                const API_BASE = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
+                // Fetch analytics filtered by department
+                const res = await fetch(`${API_BASE}/api/analytics?department=${user.department || ''}&days=30`);
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    processAnalyticsData(data);
+                } else {
+                    // Fallback to dashboard data
+                    const deptRes = await fetch(`${API_BASE}/api/dashboard?department=${user.department || ''}&adminSub=${user.sub}`);
+                    const reports = await deptRes.json();
+                    processAnalyticsData({ reports: Array.isArray(reports) ? reports : [] });
+                }
+            } catch (err) {
+                console.error('Failed to load analytics:', err);
+                toast.error('Failed to load analytics data');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAnalytics();
+    }, [user]);
+
+    const processAnalyticsData = (data) => {
+        const reportsArray = data.reports || [];
         setTotalReports(reportsArray.length);
 
         // ---------------- Pie ----------------
@@ -132,8 +165,7 @@ const Analytics = () => {
 
         setHeatmapData(grid);
         setMaxHeat(maxVal);
-
-    }, []);
+    };
 
     const getHeatColor = (v) => {
         if (v === 0) return 'bg-slate-100';
@@ -150,18 +182,25 @@ const Analytics = () => {
             <div className="space-y-8">
 
                 {/* HEADER */}
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                     <div>
                         <h1 className="text-2xl font-bold">Analytics Report</h1>
-                        <p className="text-slate-500">Performance metrics</p>
+                        <p className="text-slate-500">Performance metrics for {user?.department || 'All Departments'}</p>
                     </div>
                     <button className="flex gap-2 border px-4 py-2 rounded-xl">
                         <Download size={18} /> Export PDF
                     </button>
                 </div>
 
-                {/* TOP */}
-                <div className="grid lg:grid-cols-3 gap-8">
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                        <Loader2 size={36} className="animate-spin mb-4" />
+                        <span className="text-xs font-bold uppercase">Loading Analytics...</span>
+                    </div>
+                ) : (
+                    <>
+                        {/* TOP */}
+                        <div className="grid lg:grid-cols-3 gap-8">
 
                     {/* LINE */}
                     <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow">
@@ -228,6 +267,8 @@ const Analytics = () => {
                     </div>
 
                 </div>
+                    </>
+                )}
 
             </div>
         </AdminLayout>

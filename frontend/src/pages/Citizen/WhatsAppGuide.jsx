@@ -27,6 +27,9 @@ const WhatsAppGuide = () => {
 
       if (res.ok) {
         toast.success("Community invite sent to your WhatsApp!");
+        // Also open WhatsApp with pre-filled JOIN message for redundancy
+        const waNum = import.meta.env.VITE_GREEN_API_PHONE || '918872825483';
+        window.open(`https://wa.me/${waNum}?text=JOIN`, '_blank');
       } else {
         const data = await res.json();
         toast.error(data.error || "Failed to join community");
@@ -68,7 +71,7 @@ const WhatsAppGuide = () => {
 
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
                 <a
-                  href="https://wa.me/919981478143?text=Start"
+                  href={`https://wa.me/${import.meta.env.VITE_GREEN_API_PHONE || '918872825483'}?text=Hi!`}
                   target="_blank"
                   rel="noreferrer"
                   className="px-8 py-4 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3"
@@ -87,7 +90,7 @@ const WhatsAppGuide = () => {
                 ) : (
                   <div className="px-8 py-4 bg-slate-50 border rounded-2xl font-bold text-slate-600 flex items-center gap-2">
                     <QrCode size={20} />
-                    <span className="font-mono">+91 99814 78143</span>
+                    <span className="font-mono">+{import.meta.env.VITE_GREEN_API_PHONE || '918872825483'}</span>
                   </div>
                 )}
               </div>

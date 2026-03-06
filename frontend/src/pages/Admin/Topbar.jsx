@@ -1,24 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Menu, X, Bell, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 
-/* ---------- MOCK OFFICER ---------- */
-const mockOfficer = {
-  firstName: "Manish",
-  lastName: "Kumar",
-  department: "Sanitation",
-  role: "ADMIN"
-};
-
-const AdminTopbar = ({ toggleSidebar, isSidebarOpen }) => {
-  const [officer, setOfficer] = useState(null);
-
-  useEffect(() => {
-    // replace with GET /api/officer/me
-    setTimeout(() => setOfficer(mockOfficer), 200);
-  }, []);
-
+const AdminTopbar = ({ toggleSidebar, isSidebarOpen, officer }) => {
   if (!officer) return null;
+
+  const firstName = officer.firstName || officer.name?.split(' ')[0] || 'Admin';
+  const lastName = officer.lastName || officer.name?.split(' ').slice(1).join(' ') || '';
+  const department = officer.department || 'Operations';
+  const role = officer.designation || officer.role || 'ADMIN';
 
   return (
     <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-8">
@@ -34,7 +24,7 @@ const AdminTopbar = ({ toggleSidebar, isSidebarOpen }) => {
         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-full">
           <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
           <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-widest">
-            {officer.department}
+            {department}
           </span>
         </div>
       </div>
@@ -67,21 +57,29 @@ const AdminTopbar = ({ toggleSidebar, isSidebarOpen }) => {
         <div className="flex items-center gap-4 pl-4 border-l border-slate-200 dark:border-slate-800">
           <div className="text-right hidden sm:block">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
-              Operational Lead
+              {department}
             </p>
             <p className="text-xs font-black text-slate-900 dark:text-white uppercase">
-              {officer.firstName} {officer.lastName}
+              {firstName} {lastName}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="hidden md:block text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
-              {officer.role}
+              {role}
             </div>
 
-            <div className="w-11 h-11 rounded-[0.9rem] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-black shadow-xl">
-              {officer.firstName.charAt(0)}
-            </div>
+            {officer.avatar ? (
+              <img
+                src={officer.avatar}
+                alt={firstName}
+                className="w-11 h-11 rounded-[0.9rem] object-cover shadow-xl"
+              />
+            ) : (
+              <div className="w-11 h-11 rounded-[0.9rem] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-black shadow-xl">
+                {firstName.charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
         </div>
       </div>
