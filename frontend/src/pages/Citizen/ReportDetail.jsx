@@ -15,6 +15,31 @@ import CivicLayout from "./CivicLayout";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
+// Helper function to map issue types to departments
+const getDepartmentFromIssueType = (issueType) => {
+  const typeLC = (issueType || '').toLowerCase();
+  
+  if (typeLC.includes('pothole') || typeLC.includes('road') || typeLC.includes('traffic')) {
+    return 'Traffic';
+  }
+  if (typeLC.includes('garbage') || typeLC.includes('waste') || typeLC.includes('trash')) {
+    return 'Municipal/Waste';
+  }
+  if (typeLC.includes('water') || typeLC.includes('drainage')) {
+    return 'Water Supply';
+  }
+  if (typeLC.includes('light') || typeLC.includes('street') || typeLC.includes('electricity')) {
+    return 'Electricity Board';
+  }
+  if (typeLC.includes('noise') || typeLC.includes('pollution') || typeLC.includes('air')) {
+    return 'Police';
+  }
+  if (typeLC.includes('animal') || typeLC.includes('stray')) {
+    return 'Fire & Safety';
+  }
+  
+  return 'General';
+};
 
 const ReportDetail = () => {
   const { id } = useParams();
@@ -27,10 +52,16 @@ const ReportDetail = () => {
   useEffect(() => {
     const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
     fetch(`${API}/api/reports/${id}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         console.log("Raw report data from API:", data);
-        if (!data.report) return;
+        if (!data.report) {
+          console.error("No report in response");
+          return;
+        }
         const r = data.report;
         console.log("Report media info:", {
           mediaUrl: r.mediaUrl,
@@ -40,14 +71,15 @@ const ReportDetail = () => {
           mediaType: r.mediaType
         });
         const ts = r.createdAt || r.timestamp;
-        setReport({
+        const reportData = {
           ...r,
           ticketId: r.id ? `#${r.id.slice(-6).toUpperCase()}` : "#UNKNOWN",
           address: r.location?.address || "Address unavailable",
           lat: parseFloat(r.location?.lat || 0),
           lng: parseFloat(r.location?.lng || 0),
           timeFormatted: new Date(ts).toLocaleString(),
-        });
+        };
+        setReport(reportData);
         setEditFields({
           type: r.type || "",
           address: r.location?.address || "",
@@ -57,10 +89,15 @@ const ReportDetail = () => {
           lng: parseFloat(r.location?.lng || 0),
         });
       })
-      .catch(err => console.error("Error fetching report:", err));
+      .catch(err => {
+        console.error("Error fetching report:", err);
+        setReport({ error: "Failed to load report" });
+      });
   }, [id]);
 
   if (!report) return <div className="text-center p-10">Loading...</div>;
+  
+  if (report.error) return <div className="text-center p-10 text-red-600">{report.error}</div>;
 
   // Handlers for editing
   const handleEditToggle = () => setEditMode((v) => !v);
@@ -117,10 +154,15 @@ const ReportDetail = () => {
                       src={imagePreview || report.imageUrl || report.mediaUrl}
                       alt="Report Evidence"
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error("Image failed to load:", e.target.src);
+                        e.target.style.display = 'none';
+                      }}
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-slate-400">
-                      No image evidence
+                    <div className="flex items-center justify-center h-full text-slate-400 flex-col gap-2">
+                      <div className="text-4xl">📷</div>
+                      <div>No image evidence</div>
                     </div>
                   )
                 ) : report.mediaType === 'video' ? (
@@ -130,32 +172,39 @@ const ReportDetail = () => {
                       src={imagePreview || report.videoUrl || report.mediaUrl}
                       controls
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error("Video failed to load:", e.target.src);
+                        e.target.style.display = 'none';
+                      }}
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-slate-400">
-                      No video evidence
+                    <div className="flex items-center justify-center h-full text-slate-400 flex-col gap-2">
+                      <div className="text-4xl">🎥</div>
+                      <div>No video evidence</div>
                     </div>
                   )
                 ) : report.mediaType === 'audio' ? (
                   // AUDIO
                   report.audioUrl || report.mediaUrl ? (
-                    <div className="flex items-center justify-center h-full flex-col gap-2">
+                    <div className="flex items-center justify-center h-full flex-col gap-4">
                       <audio controls src={report.audioUrl || report.mediaUrl} className="w-full" />
                       <span className="text-xs text-slate-500">Audio evidence available</span>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-full text-slate-400">
-                      No audio evidence
+                    <div className="flex items-center justify-center h-full text-slate-400 flex-col gap-2">
+                      <div className="text-4xl">🎵</div>
+                      <div>No audio evidence</div>
                     </div>
                   )
                 ) : (
                   // UNKNOWN TYPE
-                  <div className="flex items-center justify-center h-full text-slate-400">
-                    No media evidence
+                  <div className="flex items-center justify-center h-full text-slate-400 flex-col gap-2">
+                    <div className="text-4xl">📄</div>
+                    <div>No media evidence</div>
                   </div>
                 )}
                 {editMode && report.mediaType === 'image' && (
-                  <label className="absolute top-2 right-2 bg-white p-2 rounded-full shadow cursor-pointer flex items-center gap-1">
+                  <label className="absolute top-2 right-2 bg-white p-2 rounded-full shadow cursor-pointer flex items-center gap-1 hover:bg-gray-100">
                     <ImagePlus size={18} />
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                   </label>
@@ -258,6 +307,12 @@ const ReportDetail = () => {
                   className="border px-2 py-1 rounded w-full"
                 />
               ) : report.address}
+            </div>
+            <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+              <b className="text-purple-900">Department</b>
+              <p className="text-sm mt-2 text-purple-800 font-semibold">
+                {getDepartmentFromIssueType(report.type)}
+              </p>
             </div>
             <div className="bg-blue-50 p-4 rounded-xl">
               <b>AI Analysis</b>

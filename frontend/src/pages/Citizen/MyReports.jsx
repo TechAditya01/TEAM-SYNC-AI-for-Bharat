@@ -16,6 +16,32 @@ import { Link } from "react-router-dom";
 import CivicLayout from "./CivicLayout";
 import { useAuth } from "../../context/AuthContext";
 
+// Helper function to map issue types to departments
+const getDepartmentFromIssueType = (issueType) => {
+  const typeLC = (issueType || '').toLowerCase();
+  
+  if (typeLC.includes('pothole') || typeLC.includes('road') || typeLC.includes('traffic')) {
+    return 'Traffic';
+  }
+  if (typeLC.includes('garbage') || typeLC.includes('waste') || typeLC.includes('trash')) {
+    return 'Municipal/Waste';
+  }
+  if (typeLC.includes('water') || typeLC.includes('drainage')) {
+    return 'Water Supply';
+  }
+  if (typeLC.includes('light') || typeLC.includes('street') || typeLC.includes('electricity')) {
+    return 'Electricity Board';
+  }
+  if (typeLC.includes('noise') || typeLC.includes('pollution') || typeLC.includes('air')) {
+    return 'Police';
+  }
+  if (typeLC.includes('animal') || typeLC.includes('stray')) {
+    return 'Fire & Safety';
+  }
+  
+  return 'General';
+};
+
 const MyReports = () => {
   const { user } = useAuth();
   const [filter, setFilter] = useState("All");
@@ -71,7 +97,7 @@ const MyReports = () => {
               date: new Date(r.createdAt || r.timestamp).toLocaleString(),
               status: r.status,
               severity: r.priority || "Normal",
-              department: r.department || "General",
+              department: getDepartmentFromIssueType(r.type),
               mediaType: r.mediaType || "image",
               mediaUrl: r.mediaUrl || r.imageUrl || null,
               imageUrl: r.imageUrl || r.mediaUrl || null,
@@ -224,10 +250,51 @@ const MyReports = () => {
           return (
             <div
               key={report.id}
-              className="bg-white p-6 rounded-lg border mb-4"
+              className="bg-white p-6 rounded-lg border mb-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex justify-between">
-                <div>
+              <div className="flex justify-between gap-4">
+                {/* Media Preview */}
+                <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
+                  {report.mediaType === 'image' || !report.mediaType ? (
+                    report.mediaUrl || report.imageUrl ? (
+                      <img
+                        src={report.mediaUrl || report.imageUrl}
+                        alt="Report"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          const next = e.target.nextElementSibling;
+                          if (next) next.style.display = 'flex';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400">
+                        <FileText size={32} />
+                      </div>
+                    )
+                  ) : report.mediaType === 'video' ? (
+                    <div className="w-full h-full flex items-center justify-center bg-slate-900 text-white">
+                      <div className="text-center">
+                        <div className="text-2xl mb-1">▶</div>
+                        <span className="text-xs">Video</span>
+                      </div>
+                    </div>
+                  ) : report.mediaType === 'audio' ? (
+                    <div className="w-full h-full flex items-center justify-center bg-blue-100">
+                      <div className="text-center">
+                        <div className="text-2xl mb-1">🎵</div>
+                        <span className="text-xs text-blue-600">Audio</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">
+                      <FileText size={32} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Report Details */}
+                <div className="flex-1">
                   <h3 className="font-bold text-lg">{report.type}</h3>
 
                   <div className="flex gap-2 mt-1 text-sm text-slate-500">
@@ -239,17 +306,22 @@ const MyReports = () => {
                     {report.date}
                   </div>
 
-                  <span
-                    className={`inline-flex items-center gap-1 mt-2 px-3 py-1 rounded-lg text-xs font-semibold ${statusConfig.bg} ${statusConfig.text}`}
-                  >
-                    {statusConfig.icon}
-                    {report.status}
-                  </span>
+                  <div className="flex gap-2 mt-2 items-center">
+                    <span className="text-xs font-semibold px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                      {report.department}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold ${statusConfig.bg} ${statusConfig.text}`}
+                    >
+                      {statusConfig.icon}
+                      {report.status}
+                    </span>
+                  </div>
                 </div>
 
                 <Link
                   to={`/report/${report.id}`}
-                  className="p-3 bg-slate-100 rounded-lg"
+                  className="p-3 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
                 >
                   <ArrowRight size={18} />
                 </Link>

@@ -261,14 +261,29 @@ const ReportIssue = () => {
 
       let mediaUrl = null;
 
-      if(imageFile)
-        mediaUrl = await uploadImage(imageFile,"reports");
+      try {
+        if(imageFile) {
+          console.log("Uploading image...", imageFile);
+          mediaUrl = await uploadImage(imageFile,"reports");
+          console.log("Image uploaded successfully:", mediaUrl);
+        }
 
-      if(videoFile)
-        mediaUrl = await uploadVideo(videoFile,"reports");
+        if(videoFile) {
+          console.log("Uploading video...", videoFile);
+          mediaUrl = await uploadVideo(videoFile,"reports");
+          console.log("Video uploaded successfully:", mediaUrl);
+        }
 
-      if(audioFile)
-        mediaUrl = await uploadAudio(audioFile,"reports");
+        if(audioFile) {
+          console.log("Uploading audio...", audioFile);
+          mediaUrl = await uploadAudio(audioFile,"reports");
+          console.log("Audio uploaded successfully:", mediaUrl);
+        }
+      } catch(uploadErr) {
+        console.error("Media upload error:", uploadErr);
+        toast.error("Failed to upload media: " + uploadErr.message);
+        return;
+      }
 
       const reportData = {
 
@@ -296,15 +311,20 @@ const ReportIssue = () => {
 
       };
 
+      console.log("Submitting report with data:", reportData);
+
       const result = await submitReportToBackend(reportData);
+
+      console.log("Report submitted:", result);
 
       setSubmittedreport_id(result?.id || null);
       setSubmitSuccess(true);
       toast.success("Report submitted successfully!");
 
-    }catch{
+    }catch(err){
 
-      toast.error("Submit failed");
+      console.error("Submit error:", err);
+      toast.error("Submit failed: " + err.message);
 
     }
 
@@ -455,17 +475,35 @@ Upload Evidence
 
 {selectedImage &&
 
-<img src={selectedImage} className="mt-4 rounded-xl shadow"/>}
+<div className="mt-4 rounded-xl shadow overflow-hidden">
+
+<img src={selectedImage} alt="Preview" className="w-full h-auto object-cover max-h-96"/>
+
+</div>
+
+}
 
 {selectedVideo &&
 
-<video src={selectedVideo} controls className="mt-4 rounded-xl shadow"/>}
+<div className="mt-4 rounded-xl shadow overflow-hidden">
+
+<video src={selectedVideo} controls className="w-full h-auto max-h-96"/>
+
+</div>
+
+}
 
 {selectedAudio &&
 
-<audio src={selectedAudio} controls className="mt-4 w-full"/>}
+<div className="mt-4 p-4 bg-gray-100 rounded-xl">
 
-{/* AI LOADING */}
+<audio src={selectedAudio} controls className="w-full"/>
+
+<p className="text-xs text-gray-600 mt-2">{audioFile?.name}</p>
+
+</div>
+
+}
 
 {analyzing &&
 
@@ -649,13 +687,45 @@ Issue Details
 
 <select
 
+value={category}
+
+onChange={(e)=>setCategory(e.target.value)}
+
+className="w-full border rounded-lg p-3 font-semibold"
+
+required>
+
+<option value="">Select Issue Type *</option>
+
+<option value="pothole">🚧 Pothole/Road Damage</option>
+
+<option value="garbage">🗑️ Garbage/Waste</option>
+
+<option value="water">💧 Water/Drainage</option>
+
+<option value="streetlight">💡 Street Light</option>
+
+<option value="traffic">🚦 Traffic Issue</option>
+
+<option value="noise">🔊 Noise Pollution</option>
+
+<option value="air">🌫️ Air Pollution</option>
+
+<option value="animal">🐕 Stray Animal</option>
+
+<option value="other">📋 Other</option>
+
+</select>
+
+<select
+
 value={department}
 
 onChange={(e)=>setDepartment(e.target.value)}
 
 className="w-full border rounded-lg p-3">
 
-<option value="">Select Department</option>
+<option value="">Select Department (Optional)</option>
 
 <option>Municipal/Waste</option>
 

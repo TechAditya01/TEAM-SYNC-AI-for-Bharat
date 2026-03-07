@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Menu, Bell, Sun, Moon, User } from 'lucide-react';
+import { Menu, Bell, Sun, Moon, User, X, LayoutDashboard, Map, FileText, BarChart2, AlertTriangle, Camera, MessageCircle, Award, LogOut } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import logo from '../../assets/logo.jpeg';
 
 const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || '';
 
@@ -23,6 +24,7 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
 
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState([]);
+    const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
     const dropdownRef = useRef(null);
 
     // Fetch real notifications from API
@@ -54,17 +56,45 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
     const userName = user?.name || user?.['custom:firstName'] || user?.email?.split('@')[0] || 'Guest';
     const unreadCount = notifications.filter(n => !n.read).length;
 
-    return (
-        <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 flex items-center justify-between z-20 sticky top-0">
+    const menuItems = [
+        { icon: <LayoutDashboard size={20} />, label: 'Overview', to: '/dashboard' },
+        { icon: <Map size={20} />, label: 'Live Map', to: '/map' },
+        { icon: <Camera size={20} />, label: 'New Report', to: '/report' },
+        { icon: <FileText size={20} />, label: 'My Reports', to: '/my-reports' },
+        { icon: <BarChart2 size={20} />, label: 'Leaderboard', to: '/leaderboard' },
+        { icon: <Award size={20} />, label: 'Achievements', to: '/achievements' },
+        { icon: <User size={20} />, label: 'Profile', to: '/profile' },
+        { icon: <Bell size={20} />, label: 'Notifications', to: '/notifications' },
+        { icon: <MessageCircle size={20} />, label: 'WhatsApp Guide', to: '/whatsapp-guide' },
+        { icon: <AlertTriangle size={20} />, label: 'Emergency SOS', to: '/sos' },
+        { icon: <LogOut size={20} />, label: 'Logout', to: '/login', danger: true },
+    ];
 
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={toggleSidebar}
-                    className="md:hidden p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 transition-colors"
-                >
-                    <Menu size={20} />
-                </button>
-            </div>
+    return (
+        <>
+            <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 flex items-center justify-between z-20 sticky top-0">
+
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
+                        className="md:hidden p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 transition-colors"
+                    >
+                        <Menu size={20} />
+                    </button>
+                    <Link to="/dashboard" className="md:hidden flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0">
+                            <img src={logo} alt="नगर Alert Hub" className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                            <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                                नगर Alert Hub
+                            </div>
+                            <div className="text-xs text-slate-600 dark:text-slate-400">
+                                Citizen
+                            </div>
+                        </div>
+                    </Link>
+                </div>
 
             <div className="flex items-center gap-2 md:gap-3">
 
@@ -176,6 +206,53 @@ const Topbar = ({ isSidebarOpen, toggleSidebar }) => {
 
             </div>
         </header>
+
+        {/* Mobile Drawer Menu */}
+        {mobileDrawerOpen && (
+            <>
+                {/* Backdrop */}
+                <div
+                    className="md:hidden fixed inset-0 bg-black/50 z-40"
+                    onClick={() => setMobileDrawerOpen(false)}
+                />
+
+                {/* Drawer */}
+                <div className="md:hidden fixed left-0 right-0 top-16 bottom-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 z-50 overflow-y-auto">
+                    <div className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Menu</h2>
+                            <button
+                                onClick={() => setMobileDrawerOpen(false)}
+                                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-1">
+                            {menuItems.map((item) => (
+                                <Link
+                                    key={item.to}
+                                    to={item.to}
+                                    onClick={() => setMobileDrawerOpen(false)}
+                                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                                        item.danger
+                                            ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                    }`}
+                                >
+                                    <div className="shrink-0">
+                                        {item.icon}
+                                    </div>
+                                    <span className="text-sm font-medium">{item.label}</span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </>
+        )}
+        </>
     );
 };
 

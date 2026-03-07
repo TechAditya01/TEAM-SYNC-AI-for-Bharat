@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AdminLayout from "./AdminLayout";
 import {
   Mail,
@@ -12,61 +12,93 @@ import {
   Activity,
   User,
   LogOut,
-  Edit
+  Edit,
+  TrendingUp,
+  Target,
+  Zap,
+  BarChart3,
+  RefreshCw,
+  Loader2,
+  Star,
+  Trophy,
+  AlertCircle
 } from "lucide-react";
 import { getOfficerProfile, logout } from "../../services/backendService";
 import { toast } from "react-hot-toast";
 
-/* -------- MOCK OFFICER (replace with API) -------- */
-const mockOfficer = {
-  firstName: "Manish",
-  lastName: "Kumar",
-  role: "Admin Officer",
-  department: "Sanitation",
-  email: "manish@city.gov",
-  phoneNumber: "+91 9876543210"
-};
-
 const OfficerProfile = () => {
   const [officer, setOfficer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const refreshInterval = useRef(null);
 
   /* -------- LOAD FROM API -------- */
-  useEffect(() => {
-    const fetchOfficer = async () => {
-      try {
-        setLoading(true);
-        const data = await getOfficerProfile();
+  const fetchOfficer = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      else setRefreshing(true);
 
-        if (data && !data.error) {
-          // Map backend fields to the component UI structure
-          setOfficer({
-            firstName: data.firstName || data.name?.split(' ')[0] || "Admin",
-            lastName: data.lastName || data.name?.split(' ').slice(1).join(' ') || "Officer",
-            role: data.role || "Admin Officer",
-            department: data.department || "Municipal",
-            email: data.email || localStorage.getItem("email") || "admin@city.gov",
-            phoneNumber: data.phoneNumber || data.phone || "Not provided",
-            stats: data.stats || {
-              resolved: 1284,
-              responseTime: "12m 30s",
-              rating: "4.9/5",
-              hours: "142 hrs"
-            }
-          });
-        } else {
-          setOfficer(mockOfficer); // fallback
-        }
-      } catch (err) {
-        console.error("Failed to load profile:", err);
-        setOfficer(mockOfficer); // fall back to mock data if not logged in or API fails
-      } finally {
-        setLoading(false);
+      const data = await getOfficerProfile();
+
+      if (!data || data.error) {
+        throw new Error(data?.error || 'Invalid data received from API');
+      }
+
+      setOfficer({
+        firstName: data.firstName || data.name?.split(' ')[0] || "Admin",
+        lastName: data.lastName || data.name?.split(' ').slice(1).join(' ') || "Officer",
+        role: data.role || "Admin Officer",
+        department: data.department || "Municipal",
+        email: data.email || localStorage.getItem("email") || "admin@city.gov",
+        phoneNumber: data.phoneNumber || data.phone || "Not provided",
+        joinDate: data.joinDate || Date.now() - 365 * 24 * 60 * 60 * 1000,
+        stats: data.stats || {
+          resolved: 0,
+          responseTime: "N/A",
+          rating: 0,
+          hours: 0,
+          activeIncidents: 0,
+          completionRate: 0
+        },
+        recentActivity: data.recentActivity || []
+      });
+      setLastUpdate(new Date());
+      setIsDemoMode(false);
+    } catch (err) {
+      console.error("Failed to load profile:", err);
+      
+      // Only show error toast on first load, not on silent refreshes
+      if (!silent) {
+        toast.error(`Failed to load profile: ${err.message}`);
+      }
+      
+      // Set demo mode flag
+      setIsDemoMode(true);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOfficer();
+
+    // Real-time refresh every 30 seconds (disabled in demo mode)
+    if (autoRefresh && !isDemoMode) {
+      refreshInterval.current = setInterval(() => {
+        fetchOfficer(true);
+      }, 30000);
+    }
+
+    return () => {
+      if (refreshInterval.current) {
+        clearInterval(refreshInterval.current);
       }
     };
-
-    fetchOfficer();
-  }, []);
+  }, [autoRefresh, isDemoMode]);
 
   const handleLogout = () => {
     logout();
@@ -74,124 +106,281 @@ const OfficerProfile = () => {
 
   if (loading) return (
     <AdminLayout>
-      <div className="flex items-center justify-center h-[50vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <Loader2 size={48} className="animate-spin text-blue-600" />
+        <p className="text-sm font-bold text-slate-600">Loading Profile...</p>
       </div>
     </AdminLayout>
   );
 
-  if (!officer) return null;
+  if (!officer) return (
+    <AdminLayout>
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <AlertCircle size={48} className="text-red-600" />
+        <p className="text-lg font-bold text-slate-800">
+          Failed to Load Profile
+        </p>
+        <p className="text-sm text-slate-600">
+          Unable to connect to the API. Please check your connection and try again.
+        </p>
+        <button
+          onClick={() => fetchOfficer()}
+          className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center gap-2"
+        >
+          <RefreshCw size={18} />
+          Retry
+        </button>
+      </div>
+    </AdminLayout>
+  );
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto pb-20 space-y-8">
-        {/* Header */}
-        <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 lg:p-12 border shadow-sm">
-          <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
-            {/* Avatar */}
-            <div className="w-32 h-32 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-[2.5rem] flex items-center justify-center text-5xl font-black text-white">
-              {officer.firstName.charAt(0)}
+      <div className="max-w-7xl mx-auto pb-20 space-y-6 p-6">
+        
+        {/* Demo Mode Warning Banner */}
+        {isDemoMode && (
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-4 text-white shadow-lg">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={24} />
+              <div className="flex-1">
+                <p className="font-bold">API Connection Failed</p>
+                <p className="text-sm text-white/90">Unable to load profile data from server. Please check your API configuration and connection.</p>
+              </div>
+              <button
+                onClick={() => fetchOfficer()}
+                disabled={refreshing}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                Retry
+              </button>
             </div>
+          </div>
+        )}
+        
+        {/* Header Card */}
+        <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+          {/* Animated Background */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl animate-pulse delay-1000"></div>
+          </div>
 
-            {/* Name + Role */}
-            <div className="flex-1 space-y-2">
-              <div className="flex gap-3">
-                <Badge text={officer.role} color="blue" />
-                <Badge text="Active Duty" color="green" pulse />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                {isDemoMode && (
+                  <div className="flex items-center gap-2 bg-orange-500/20 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs border border-orange-400/30">
+                    <AlertCircle size={12} />
+                    <span>Demo Mode</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span>Active Duty</span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs">
+                  <Clock size={12} />
+                  <span>Last updated: {lastUpdate.toLocaleTimeString()}</span>
+                </div>
               </div>
 
-              <h1 className="text-4xl font-black uppercase">
-                {officer.firstName} {officer.lastName}
-              </h1>
-
-              <p className="text-sm font-bold text-slate-400 uppercase flex items-center gap-2">
-                <Shield size={14} />
-                Department of {officer.department}
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col gap-3 self-stretch md:self-auto justify-center">
-              <button className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors">
-                <Edit size={18} />
-                Edit Profile
-              </button>
               <button
-                onClick={handleLogout}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold transition-colors"
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all text-sm"
               >
-                <LogOut size={18} />
-                Sign Out
+                <RefreshCw size={16} className={autoRefresh ? 'animate-spin' : ''} />
+                Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
               </button>
             </div>
 
-            {/* Contact */}
-            <div className="flex flex-col gap-3">
-              <InfoBadge icon={<Mail size={16} />} label={officer.email} />
-              <InfoBadge icon={<Phone size={16} />} label={officer.phoneNumber} />
-              <InfoBadge icon={<MapPin size={16} />} label="Central HQ" />
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+              {/* Avatar */}
+              <div className="relative">
+                <div className="w-32 h-32 bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm rounded-3xl flex items-center justify-center text-5xl font-black border-4 border-white/20 shadow-2xl">
+                  {officer.firstName.charAt(0)}
+                </div>
+                <div className="absolute -bottom-2 -right-2 bg-green-500 p-2 rounded-xl shadow-lg">
+                  <Shield size={20} className="text-white" />
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="flex-1">
+                <h1 className="text-4xl font-bold mb-2">
+                  {officer.firstName} {officer.lastName}
+                </h1>
+                <p className="text-white/80 text-lg mb-4 flex items-center gap-2">
+                  <Award size={20} />
+                  {officer.role} • Department of {officer.department}
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <InfoCard icon={<Mail size={16} />} label={officer.email} />
+                  <InfoCard icon={<Phone size={16} />} label={officer.phoneNumber} />
+                  <InfoCard icon={<MapPin size={16} />} label="Central HQ" />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-3">
+                <button className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-blue-600 rounded-xl font-bold hover:shadow-lg transition-all">
+                  <Edit size={18} />
+                  Edit Profile
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all"
+                >
+                  <LogOut size={18} />
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Stats */}
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border shadow-sm">
-              <h3 className="text-lg font-black uppercase mb-6 flex gap-2">
-                <Activity size={20} /> Performance
-              </h3>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            icon={<CheckCircle size={24} className="text-green-600" />}
+            label="Resolved"
+            value={officer.stats.resolved.toLocaleString()}
+            trend="+12%"
+            color="green"
+          />
+          <StatCard
+            icon={<Clock size={24} className="text-blue-600" />}
+            label="Avg Response"
+            value={officer.stats.responseTime}
+            trend="-8%"
+            color="blue"
+          />
+          <StatCard
+            icon={<Star size={24} className="text-yellow-600" />}
+            label="Rating"
+            value={`${officer.stats.rating}/5`}
+            trend="+0.2"
+            color="yellow"
+          />
+          <StatCard
+            icon={<Activity size={24} className="text-purple-600" />}
+            label="Active Now"
+            value={officer.stats.activeIncidents}
+            trend="Live"
+            color="purple"
+          />
+        </div>
 
-              <div className="space-y-4">
-                <StatRow label="Incidents Resolved" value={officer.stats?.resolved || "1,284"} icon={<CheckCircle size={18} />} />
-                <StatRow label="Response Time" value={officer.stats?.responseTime || "12m 30s"} icon={<Clock size={18} />} />
-                <StatRow label="Citizen Rating" value={officer.stats?.rating || "4.9/5"} icon={<Award size={18} />} />
-                <StatRow label="Time on Duty" value={officer.stats?.hours || "142 hrs"} icon={<Calendar size={18} />} />
+        {/* Main Content Grid */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          
+          {/* Left Column - Performance */}
+          <div className="space-y-6">
+            {/* Performance Card */}
+            <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-slate-200">
+                <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+                  <BarChart3 size={20} className="text-blue-600" />
+                  Performance Metrics
+                </h3>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <MetricRow 
+                  label="Completion Rate" 
+                  value={`${officer.stats.completionRate}%`}
+                  progress={officer.stats.completionRate}
+                  color="blue"
+                />
+                <MetricRow 
+                  label="Time on Duty" 
+                  value={`${officer.stats.hours} hrs`}
+                  progress={75}
+                  color="green"
+                />
+                <MetricRow 
+                  label="Citizen Satisfaction" 
+                  value={`${officer.stats.rating * 20}%`}
+                  progress={officer.stats.rating * 20}
+                  color="yellow"
+                />
               </div>
             </div>
 
-            {/* Award */}
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white">
-              <Award size={40} className="mb-4 text-yellow-300" />
-              <h3 className="text-xl font-black">Officer of the Month</h3>
-              <p className="text-blue-100 text-sm">
-                Exceptional service during sanitation drive.
+            {/* Achievement Card */}
+            <div className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-3xl p-8 text-white shadow-2xl">
+              <Trophy size={48} className="mb-4 text-yellow-200" />
+              <h3 className="text-2xl font-bold mb-2">Officer of the Month</h3>
+              <p className="text-white/90 text-sm mb-4">
+                Exceptional service during sanitation drive and emergency response.
               </p>
-              <div className="text-xs font-black mt-4 bg-white/20 px-3 py-1 rounded">
-                Nov 2025
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl w-fit">
+                <Calendar size={16} />
+                <span className="text-sm font-bold">November 2025</span>
               </div>
             </div>
           </div>
 
-          {/* Activity Log */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border shadow-sm">
-            <h3 className="text-lg font-black uppercase mb-8 flex gap-2">
-              <Clock size={20} /> Service Log
-            </h3>
+          {/* Right Column - Activity */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+                    <Activity size={20} className="text-purple-600" />
+                    Recent Activity
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1">Real-time service log</p>
+                </div>
+                <button
+                  onClick={() => fetchOfficer(true)}
+                  disabled={refreshing}
+                  className="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-xl transition-all text-sm font-medium"
+                >
+                  <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
+              </div>
 
-            <div className="space-y-8 border-l-2 border-slate-200 pl-8">
-              <LogItem
-                title="Report Verified #10293"
-                time="10:42 AM Today"
-                desc="Verified pothole complaint"
-                icon={<CheckCircle size={14} />}
-                color="bg-green-500"
-              />
-              <LogItem
-                title="Broadcast Sent"
-                time="09:15 AM Today"
-                desc="Rain alert issued"
-                icon={<Activity size={14} />}
-                color="bg-blue-500"
-              />
-              <LogItem
-                title="Shift Started"
-                time="09:00 AM"
-                desc="Logged in from HQ"
-                icon={<Shield size={14} />}
-                color="bg-slate-500"
-              />
+              <div className="p-8">
+                <div className="space-y-6 border-l-2 border-slate-200 pl-8">
+                  {officer.recentActivity && officer.recentActivity.length > 0 ? (
+                    officer.recentActivity.map((activity, idx) => (
+                      <ActivityItem
+                        key={activity.id || idx}
+                        title={activity.title}
+                        time={new Date(activity.time).toLocaleString()}
+                        type={activity.type}
+                      />
+                    ))
+                  ) : (
+                    <>
+                      <ActivityItem
+                        title="Report Verified #10293"
+                        time="10:42 AM Today"
+                        type="verified"
+                      />
+                      <ActivityItem
+                        title="Broadcast Sent - Rain Alert"
+                        time="09:15 AM Today"
+                        type="broadcast"
+                      />
+                      <ActivityItem
+                        title="Shift Started"
+                        time="09:00 AM Today"
+                        type="login"
+                      />
+                      <ActivityItem
+                        title="Incident Resolved #10287"
+                        time="Yesterday 5:30 PM"
+                        type="resolved"
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -200,48 +389,87 @@ const OfficerProfile = () => {
   );
 };
 
-/* ---------- UI PARTS ---------- */
+/* ---------- UI COMPONENTS ---------- */
 
-const Badge = ({ text, color, pulse }) => (
-  <span
-    className={`px-3 py-1 text-xs font-black uppercase rounded-lg ${color === "blue"
-        ? "bg-blue-50 text-blue-600"
-        : "bg-green-50 text-green-600"
-      }`}
-  >
-    {pulse && <span className="w-2 h-2 bg-green-500 rounded-full mr-1 inline-block animate-pulse" />}
-    {text}
-  </span>
-);
-
-const InfoBadge = ({ icon, label }) => (
-  <div className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-2xl border">
-    <div className="text-slate-400">{icon}</div>
-    <span className="text-xs font-bold">{label}</span>
+const InfoCard = ({ icon, label }) => (
+  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-3 rounded-xl border border-white/20">
+    <div className="text-white/80">{icon}</div>
+    <span className="text-sm font-medium">{label}</span>
   </div>
 );
 
-const StatRow = ({ label, value, icon }) => (
-  <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-white rounded-xl">{icon}</div>
-      <span className="text-xs font-bold text-slate-500 uppercase">
-        {label}
+const StatCard = ({ icon, label, value, trend, color }) => {
+  const colorClasses = {
+    green: 'from-green-50 to-emerald-50 border-green-200',
+    blue: 'from-blue-50 to-cyan-50 border-blue-200',
+    yellow: 'from-yellow-50 to-orange-50 border-yellow-200',
+    purple: 'from-purple-50 to-pink-50 border-purple-200'
+  };
+
+  const trendColor = trend.startsWith('+') || trend === 'Live' ? 'text-green-600' : 'text-blue-600';
+
+  return (
+    <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-2xl p-6 border-2 shadow-lg`}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="bg-white p-3 rounded-xl shadow-sm">
+          {icon}
+        </div>
+        <span className={`text-xs font-bold ${trendColor} flex items-center gap-1`}>
+          {trend !== 'Live' && <TrendingUp size={12} />}
+          {trend}
+        </span>
+      </div>
+      <div className="text-3xl font-bold text-slate-800 mb-1">{value}</div>
+      <div className="text-xs text-slate-600 font-medium uppercase">{label}</div>
+    </div>
+  );
+};
+
+const MetricRow = ({ label, value, progress, color }) => {
+  const colorClasses = {
+    blue: 'bg-blue-600',
+    green: 'bg-green-600',
+    yellow: 'bg-yellow-500'
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-sm font-bold text-slate-700">{label}</span>
+        <span className="text-sm font-bold text-slate-900">{value}</span>
+      </div>
+      <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+        <div 
+          className={`h-full ${colorClasses[color]} rounded-full transition-all duration-500`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const ActivityItem = ({ title, time, type }) => {
+  const typeConfig = {
+    verified: { color: 'bg-green-500', icon: <CheckCircle size={14} /> },
+    broadcast: { color: 'bg-blue-500', icon: <Zap size={14} /> },
+    login: { color: 'bg-slate-500', icon: <Shield size={14} /> },
+    resolved: { color: 'bg-purple-500', icon: <Target size={14} /> }
+  };
+
+  const config = typeConfig[type] || typeConfig.verified;
+
+  return (
+    <div className="relative">
+      <div className={`absolute -left-12 top-0 w-8 h-8 rounded-full ${config.color} flex items-center justify-center text-white shadow-lg`}>
+        {config.icon}
+      </div>
+      <h4 className="font-bold text-slate-800">{title}</h4>
+      <span className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+        <Clock size={12} />
+        {time}
       </span>
     </div>
-    <span className="font-black text-lg">{value}</span>
-  </div>
-);
-
-const LogItem = ({ title, time, desc, icon, color }) => (
-  <div className="relative">
-    <div className={`absolute -left-12 top-0 w-8 h-8 rounded-full ${color} flex items-center justify-center text-white`}>
-      {icon}
-    </div>
-    <h4 className="font-bold">{title}</h4>
-    <span className="text-xs text-slate-400">{time}</span>
-    <p className="text-sm text-slate-500">{desc}</p>
-  </div>
-);
+  );
+};
 
 export default OfficerProfile;

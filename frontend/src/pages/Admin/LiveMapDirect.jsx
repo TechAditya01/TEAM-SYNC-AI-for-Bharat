@@ -11,7 +11,7 @@ const API = import.meta.env.VITE_AWS_API_GATEWAY_URL || "";
 const AWS_REGION = import.meta.env.VITE_AWS_REGION || 'ap-south-1';
 const API_KEY = import.meta.env.VITE_AWS_LOCATION_API_KEY;
 
-const AdminMap = () => {
+const AdminMapDirect = () => {
     const { user } = useAuth();
     const mapContainer = useRef(null);
     const map = useRef(null);
@@ -22,9 +22,8 @@ const AdminMap = () => {
     const [loading, setLoading] = useState(true);
     const [mapLoading, setMapLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [mapStyle, setMapStyle] = useState("Standard");
 
-    /* -------- INITIALIZE MAP (Same as Citizen) -------- */
+    /* -------- INITIALIZE MAP -------- */
     useEffect(() => {
         if (map.current || !mapContainer.current) return;
 
@@ -35,7 +34,9 @@ const AdminMap = () => {
         }
 
         try {
-            const styleUrl = `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/${mapStyle}/descriptor?key=${API_KEY}`;
+            const styleUrl = `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/Standard/descriptor?key=${API_KEY}`;
+            
+            console.log('Initializing map...');
             
             map.current = new maplibregl.Map({
                 container: mapContainer.current,
@@ -45,12 +46,13 @@ const AdminMap = () => {
             });
 
             map.current.on('load', () => {
+                console.log('✓ Map loaded');
                 setMapLoading(false);
             });
 
             map.current.on('error', (e) => {
                 console.error('Map error:', e);
-                setError('Failed to load AWS Map');
+                setError('Failed to load map');
                 setMapLoading(false);
             });
 
@@ -97,6 +99,7 @@ const AdminMap = () => {
                 
                 setIncidents(validIncidents);
                 
+                // Fly to first incident
                 if (validIncidents.length > 0 && map.current) {
                     const first = validIncidents[0];
                     map.current.flyTo({
@@ -126,10 +129,11 @@ const AdminMap = () => {
         return () => clearInterval(interval);
     }, [user]);
 
-    /* -------- ADD MARKERS (Same as Citizen) -------- */
+    /* -------- ADD MARKERS -------- */
     useEffect(() => {
         if (!map.current || mapLoading) return;
 
+        // Clear existing markers
         markersRef.current.forEach(m => m.remove());
         markersRef.current = [];
 
@@ -187,9 +191,9 @@ const AdminMap = () => {
             <div className="h-[calc(100vh-150px)] flex flex-col gap-6">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Department Live Monitor</h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Geospatial view of active civic issues
+                        <h1 className="text-2xl font-bold">Department Live Monitor</h1>
+                        <p className="text-sm text-slate-500">
+                            Geospatial view of active civic issues (Direct MapLibre)
                         </p>
                     </div>
                     <button
@@ -203,7 +207,8 @@ const AdminMap = () => {
                 </div>
 
                 <div className="flex-1 flex gap-4 overflow-hidden relative">
-                    <div className="flex-1 rounded-3xl border border-slate-200 dark:border-slate-700 overflow-hidden relative bg-slate-100 dark:bg-slate-900">
+                    {/* Map Container */}
+                    <div className="flex-1 rounded-3xl border border-slate-200 dark:border-slate-700 overflow-hidden relative bg-slate-100 dark:bg-slate-900" style={{ minHeight: '500px' }}>
                         {mapLoading && (
                             <div className="absolute inset-0 z-30 bg-white/80 dark:bg-slate-900/80 flex items-center justify-center">
                                 <div className="text-center">
@@ -224,32 +229,33 @@ const AdminMap = () => {
                         <div ref={mapContainer} className="w-full h-full" />
                     </div>
 
+                    {/* Sidebar */}
                     {selectedIncident ? (
-                        <div className="w-80 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col shadow-sm">
-                            <h3 className="font-bold text-lg mb-2 flex gap-2 items-center text-slate-900 dark:text-white">
+                        <div className="w-80 bg-white rounded-3xl border p-6 flex flex-col shadow-sm">
+                            <h3 className="font-bold text-lg mb-2 flex gap-2 items-center">
                                 <AlertTriangle className={
                                     selectedIncident.priority === "High" ? "text-red-500" : "text-yellow-500"
                                 } size={20} />
                                 {selectedIncident.type}
                             </h3>
                             <span className={`text-xs font-semibold px-2 py-1 rounded-md w-max mb-4 ${
-                                selectedIncident.status === "Pending" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" :
-                                selectedIncident.status === "Accepted" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" :
-                                "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                                selectedIncident.status === "Pending" ? "bg-blue-100 text-blue-700" :
+                                selectedIncident.status === "Accepted" ? "bg-yellow-100 text-yellow-700" :
+                                "bg-slate-100 text-slate-700"
                             }`}>
                                 {selectedIncident.status}
                             </span>
 
-                            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 flex-1">
+                            <p className="text-sm text-slate-600 mb-4 flex-1">
                                 {selectedIncident.description}
                             </p>
 
-                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                            <div className="text-xs text-slate-500 mb-2">
                                 <MapPin size={12} className="inline mr-1" />
                                 {selectedIncident.location?.address || 'Location not available'}
                             </div>
 
-                            <div className="text-xs text-slate-400 dark:text-slate-500 font-medium flex gap-2 mb-4 items-center">
+                            <div className="text-xs text-slate-400 font-medium flex gap-2 mb-4 items-center">
                                 <Clock size={14} />
                                 {new Date(selectedIncident.createdAt).toLocaleString()}
                             </div>
@@ -264,20 +270,20 @@ const AdminMap = () => {
 
                             <button
                                 onClick={() => setSelectedIncident(null)}
-                                className="mt-2 text-slate-500 dark:text-slate-400 text-sm hover:underline py-2"
+                                className="mt-2 text-slate-500 text-sm hover:underline py-2"
                             >
                                 Dismiss
                             </button>
                         </div>
                     ) : (
-                        <div className="w-80 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col items-center justify-center text-center">
-                            <MapPin size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
-                            <p className="text-slate-500 dark:text-slate-400 font-medium">
+                        <div className="w-80 bg-white rounded-3xl border p-6 flex flex-col items-center justify-center text-center">
+                            <MapPin size={48} className="text-slate-300 mb-4" />
+                            <p className="text-slate-500 font-medium">
                                 {loading ? 'Loading incidents...' : 
                                  incidents.length === 0 ? 'No active incidents' :
                                  'Click a marker to view details'}
                             </p>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                            <p className="text-xs text-slate-400 mt-2">
                                 {incidents.length} active incident{incidents.length !== 1 ? 's' : ''}
                             </p>
                         </div>
@@ -288,4 +294,4 @@ const AdminMap = () => {
     );
 };
 
-export default AdminMap;
+export default AdminMapDirect;

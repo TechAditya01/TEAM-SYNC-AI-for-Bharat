@@ -425,8 +425,12 @@ export const deleteAlert = async (alertId) => {
 // ============================================
 
 export const getOfficerProfile = async (officerId) => {
-    const uid = officerId || localStorage.getItem("uid");
-    return apiCall(`/api/officer/${uid}`, { method: "GET" });
+    // If no officerId provided, use /me endpoint which gets from JWT token
+    if (!officerId) {
+        return apiCall(`/api/officer/me`, { method: "GET" });
+    }
+    // Otherwise get specific officer by ID
+    return apiCall(`/api/officer/${officerId}`, { method: "GET" });
 };
 
 export const updateOfficerProfile = async (officerId, profileData) => {

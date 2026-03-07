@@ -14,14 +14,22 @@ const getPresignedUrl = async (fileName, fileType) => {
         file_type: fileType,
     });
 
+    console.log(`[getPresignedUrl] Requesting presigned URL for: ${fileName}`);
+
     const response = await fetch(`${API_BASE_URL}/get-presigned-url?${params}`, {
         headers: {
             Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`,
         },
     });
 
-    if (!response.ok) throw new Error("Failed to get presigned URL");
-    return response.json();
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Failed to get presigned URL: ${response.status} - ${errText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`[getPresignedUrl] Got response:`, data);
+    return data;
 };
 
 /**
@@ -32,6 +40,8 @@ const uploadFile = async (file, folder) => {
         const fileName = `${folder}/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
         const fileType = file.type;
 
+        console.log(`[uploadFile] Starting upload for: ${fileName}, type: ${fileType}, size: ${file.size}`);
+
         // 1. Get presigned URL from backend
         const presignedResponse = await getPresignedUrl(fileName, fileType);
 
@@ -39,11 +49,14 @@ const uploadFile = async (file, folder) => {
             throw new Error("Failed to get presigned URL");
         }
 
-        const { url, fields } = presignedResponse;
+        console.log(`[uploadFile] Got presigned URL, bucket: ${presignedResponse.bucket}`);
+
+        const { url, fields, bucket, region } = presignedResponse;
 
         // 2. Upload to S3
         if (fields) {
             // POST upload with form fields
+            console.log(`[uploadFile] Using POST upload with form fields`);
             const formData = new FormData();
             Object.entries(fields).forEach(([key, value]) => {
                 formData.append(key, value);
@@ -55,10 +68,18 @@ const uploadFile = async (file, folder) => {
                 body: formData,
             });
 
-            if (!uploadRes.ok) throw new Error("Upload failed");
-            return `${url}/${fileName}`;
+            if (!uploadRes.ok) {
+                const errText = await uploadRes.text();
+                throw new Error(`Upload failed: ${uploadRes.status} - ${errText}`);
+            }
+            
+            // Return permanent S3 URL
+            const s3Url = `https://${bucket}.s3.${region || 'ap-south-1'}.amazonaws.com/${fileName}`;
+            console.log(`[uploadFile] Upload successful, URL: ${s3Url}`);
+            return s3Url;
         } else {
             // PUT upload (direct presigned URL)
+            console.log(`[uploadFile] Using PUT upload`);
             const uploadRes = await fetch(url, {
                 method: "PUT",
                 body: file,
@@ -67,13 +88,18 @@ const uploadFile = async (file, folder) => {
                 },
             });
 
-            if (!uploadRes.ok) throw new Error("Upload failed");
+            if (!uploadRes.ok) {
+                const errText = await uploadRes.text();
+                throw new Error(`Upload failed: ${uploadRes.status} - ${errText}`);
+            }
             
-            // Return the public URL (without query params)
-            return url.split("?")[0];
+            // Return permanent S3 URL (without query params)
+            const baseUrl = url.split("?")[0];
+            console.log(`[uploadFile] Upload successful, URL: ${baseUrl}`);
+            return baseUrl;
         }
     } catch (error) {
-        console.error("Storage error:", error);
+        console.error("[uploadFile] Storage error:", error);
         throw error;
     }
 };

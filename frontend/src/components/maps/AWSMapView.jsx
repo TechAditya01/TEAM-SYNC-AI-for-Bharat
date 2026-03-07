@@ -12,11 +12,6 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 const AWS_REGION = import.meta.env.VITE_AWS_REGION || 'ap-south-1';
 const API_KEY = import.meta.env.VITE_AWS_LOCATION_API_KEY;
 
-// Map style URL with API key
-const getMapStyleUrl = () => {
-  return `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/Standard/descriptor?key=${API_KEY}`;
-};
-
 const AWSMapView = ({ 
   center = [79.0882, 21.1458], // [lng, lat] - Default: Nagpur
   zoom = 14,
@@ -42,52 +37,96 @@ const AWSMapView = ({
       return;
     }
 
-    try {
-      const styleUrl = `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/${style}/descriptor?key=${API_KEY}`;
-      
-      map.current = new maplibregl.Map({
-        container: mapContainer.current,
-        style: styleUrl,
-        center: center,
-        zoom: zoom,
-      });
-
-      map.current.on('load', () => {
-        setLoading(false);
-      });
-
-      map.current.on('error', (e) => {
-        console.error('Map error:', e);
-        setError('Failed to load map. Check API key permissions.');
-        setLoading(false);
-      });
-
-      // Add navigation controls
-      map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
-      
-      // Add geolocation control
-      map.current.addControl(
-        new maplibregl.GeolocateControl({
-          positionOptions: { enableHighAccuracy: true },
-          trackUserLocation: true,
-          showUserHeading: true,
-        }),
-        'top-right'
-      );
-
-      // Add scale
-      map.current.addControl(new maplibregl.ScaleControl({ maxWidth: 100 }), 'bottom-left');
-
-      // Add fullscreen control
-      map.current.addControl(new maplibregl.FullscreenControl(), 'top-right');
-
-    } catch (err) {
-      console.error('Failed to initialize map:', err);
-      setError('Failed to initialize map.');
+    // Check if container has dimensions
+    const rect = mapContainer.current.getBoundingClientRect();
+    console.log('Map container dimensions:', rect.width, 'x', rect.height);
+    
+    if (rect.width === 0 || rect.height === 0) {
+      console.error('Map container has no dimensions!');
+      setError('Map container not properly sized. Check CSS.');
       setLoading(false);
+      return;
     }
 
+    let loadTimeout;
+
+    const initializeMap = () => {
+      // Set a timeout to catch loading issues
+      loadTimeout = setTimeout(() => {
+        console.error('Map load timeout - taking too long');
+        setError('Map loading timeout. Please check your network connection.');
+        setLoading(false);
+      }, 15000); // 15 second timeout
+
+      try {
+        const styleUrl = `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/${style}/descriptor?key=${API_KEY}`;
+        
+        console.log('Initializing map with style:', styleUrl);
+        console.log('Map center:', center, 'zoom:', zoom);
+        
+        map.current = new maplibregl.Map({
+          container: mapContainer.current,
+          style: styleUrl,
+          center: center,
+          zoom: zoom,
+          attributionControl: false,
+        });
+
+        map.current.on('load', () => {
+          console.log('✓ Map loaded successfully');
+          clearTimeout(loadTimeout);
+          setLoading(false);
+        });
+
+        map.current.on('error', (e) => {
+          console.error('Map error:', e);
+          clearTimeout(loadTimeout);
+          
+          let errorMsg = 'Failed to load map.';
+          if (e.error?.message?.includes('401') || e.error?.message?.includes('403')) {
+            errorMsg = 'Invalid API key or insufficient permissions.';
+          } else if (e.error?.message?.includes('network')) {
+            errorMsg = 'Network error. Check your internet connection.';
+          } else if (e.error?.message) {
+            errorMsg = e.error.message;
+          }
+          
+          setError(errorMsg);
+          setLoading(false);
+        });
+
+        // Add navigation controls
+        map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+        
+        // Add geolocation control
+        map.current.addControl(
+          new maplibregl.GeolocateControl({
+            positionOptions: { enableHighAccuracy: true },
+            trackUserLocation: true,
+            showUserHeading: true,
+          }),
+          'top-right'
+        );
+
+        // Add scale
+        map.current.addControl(new maplibregl.ScaleControl({ maxWidth: 100 }), 'bottom-left');
+
+        // Add fullscreen control
+        map.current.addControl(new maplibregl.FullscreenControl(), 'top-right');
+
+      } catch (err) {
+        console.error('Failed to initialize map:', err);
+        clearTimeout(loadTimeout);
+        setError(`Failed to initialize map: ${err.message}`);
+        setLoading(false);
+      }
+    };
+
+    // Small delay to ensure container is fully rendered
+    setTimeout(initializeMap, 100);
+
     return () => {
+      if (loadTimeout) clearTimeout(loadTimeout);
       if (map.current) {
         map.current.remove();
         map.current = null;
@@ -99,7 +138,6 @@ const AWSMapView = ({
   useEffect(() => {
     if (!map.current) return;
 
-    // Wait for map to load
     const addMarkers = () => {
       // Clear existing markers
       markersRef.current.forEach(m => m.remove());
@@ -126,7 +164,6 @@ const AWSMapView = ({
           justify-content: center;
         `;
         
-        // Add icon based on category
         const icon = getCategoryIcon(category);
         el.innerHTML = `<span style="font-size: 14px;">${icon}</span>`;
         
@@ -184,7 +221,6 @@ const AWSMapView = ({
       animation: pulse 2s infinite;
     `;
 
-    // Add pulse animation
     const style = document.createElement('style');
     style.textContent = `
       @keyframes pulse {
@@ -218,6 +254,16 @@ const AWSMapView = ({
         <div className="text-center">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
           <p className="text-slate-600 dark:text-slate-400">Loading AWS Map...</p>
+          <p className="text-xs text-slate-400 mt-2">If this takes too long, check browser console</p>
+          <button 
+            onClick={() => {
+              setError('Map loading cancelled. Please refresh the page.');
+              setLoading(false);
+            }}
+            className="mt-4 px-4 py-2 text-xs bg-slate-200 hover:bg-slate-300 rounded-lg"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     );
@@ -230,6 +276,12 @@ const AWSMapView = ({
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
           <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2">Map Error</h3>
           <p className="text-slate-600 dark:text-slate-400 text-sm">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+          >
+            Reload Page
+          </button>
         </div>
       </div>
     );
@@ -274,7 +326,7 @@ export const searchPlaces = async (query, maxResults = 5) => {
         body: JSON.stringify({
           QueryText: query,
           MaxResults: maxResults,
-          BiasPosition: [79.0882, 21.1458], // Bias towards Nagpur
+          BiasPosition: [79.0882, 21.1458],
         }),
       }
     );

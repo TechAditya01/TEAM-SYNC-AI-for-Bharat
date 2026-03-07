@@ -384,71 +384,98 @@ const LiveMap = () => {
         `}</style>
 
         {/* -------- STATS BAR -------- */}
-        <div className="absolute top-4 left-4 right-4 flex gap-3 z-10">
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow flex-1 flex items-center justify-between">
-            <div>
+        <div className="absolute top-4 left-4 right-4 z-10">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {/* Header */}
+            <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-slate-900 dark:text-white">Live Map</h2>
-                <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full font-medium">
+                <h2 className="font-bold text-sm text-slate-900 dark:text-white">Live Map</h2>
+                <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full font-semibold">
                   AWS
                 </span>
               </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400">{filteredPins.length} Active Reports</p>
+              <button 
+                onClick={fetchReports}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-all"
+                title="Refresh"
+              >
+                <RefreshCw size={16} className={`${loading ? 'animate-spin' : ''} text-slate-700 dark:text-slate-300`} />
+              </button>
             </div>
-            <button 
-              onClick={fetchReports}
-              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-              title="Refresh"
-            >
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-            </button>
-          </div>
-
-          <div className="hidden md:flex gap-3">
-            <Stat icon={<AlertCircle className="text-red-500" />} value={criticalCount} label="Critical" />
-            <Stat icon={<Clock className="text-yellow-500" />} value={pendingCount} label="Pending" />
-            <Stat icon={<CheckCircle className="text-green-500" />} value={resolvedCount} label="Resolved" />
+            
+            {/* Stats Grid */}
+            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700">
+              <div className="px-3 py-2 text-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="flex items-center justify-center gap-1 mb-0.5">
+                  <AlertCircle className="text-red-500" size={14} />
+                  <span className="text-base font-bold text-slate-900 dark:text-white">{criticalCount}</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Critical</p>
+              </div>
+              <div className="px-3 py-2 text-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="flex items-center justify-center gap-1 mb-0.5">
+                  <Clock className="text-yellow-500" size={14} />
+                  <span className="text-base font-bold text-slate-900 dark:text-white">{pendingCount}</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Pending</p>
+              </div>
+              <div className="px-3 py-2 text-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="flex items-center justify-center gap-1 mb-0.5">
+                  <CheckCircle className="text-green-500" size={14} />
+                  <span className="text-base font-bold text-slate-900 dark:text-white">{resolvedCount}</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Resolved</p>
+              </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">{filteredPins.length} Active Reports</p>
+            </div>
           </div>
         </div>
 
         {/* -------- FILTER BUTTON -------- */}
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="absolute top-20 left-4 bg-white dark:bg-slate-800 p-3 rounded-lg shadow z-10 hover:bg-slate-50 dark:hover:bg-slate-700"
+          className="absolute top-32 left-4 bg-white dark:bg-slate-800 p-3 rounded-lg shadow-lg z-10 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
+          title="Filter reports"
         >
-          <Filter size={20} />
+          <Filter size={20} className="text-slate-700 dark:text-slate-300" />
         </button>
 
         {/* -------- MAP STYLE BUTTON -------- */}
         <button
           onClick={() => setShowStylePicker(!showStylePicker)}
-          className="absolute top-32 left-4 bg-white dark:bg-slate-800 p-3 rounded-lg shadow z-10 hover:bg-slate-50 dark:hover:bg-slate-700"
+          className="absolute top-44 left-4 bg-white dark:bg-slate-800 p-3 rounded-lg shadow-lg z-10 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
           title="Change map style"
         >
-          <Layers size={20} />
+          <Layers size={20} className="text-slate-700 dark:text-slate-300" />
         </button>
 
         {/* -------- CENTER ON USER BUTTON -------- */}
         {userLocation && (
           <button
             onClick={centerOnUser}
-            className="absolute top-20 right-4 bg-white dark:bg-slate-800 p-3 rounded-lg shadow z-10 hover:bg-slate-50 dark:hover:bg-slate-700"
+            className="absolute top-32 right-4 bg-white dark:bg-slate-800 p-3 rounded-lg shadow-lg z-10 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
             title="Center on my location"
           >
-            <Navigation size={20} />
+            <Navigation size={20} className="text-slate-700 dark:text-slate-300" />
           </button>
         )}
 
         {/* -------- FILTER DROPDOWN -------- */}
         {showFilters && (
-          <div className="absolute top-44 left-4 bg-white dark:bg-slate-800 p-2 rounded-lg shadow-xl z-10 min-w-[150px]">
-            <p className="text-xs font-semibold text-slate-500 px-3 py-1">Filter by</p>
+          <div className="absolute top-56 left-4 bg-white dark:bg-slate-800 p-2 rounded-lg shadow-xl z-10 min-w-[150px] border border-slate-200 dark:border-slate-700">
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 px-3 py-2 uppercase tracking-wider">Filter by</p>
             {["all", "critical", "pothole", "garbage", "water", "traffic"].map((f) => (
               <button
                 key={f}
                 onClick={() => { setFilterType(f); setShowFilters(false); }}
-                className={`block w-full text-left px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 capitalize text-sm ${
-                  filterType === f ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : ''
+                className={`block w-full text-left px-3 py-2 rounded capitalize text-sm font-medium transition-all ${
+                  filterType === f 
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
                 {f === 'all' ? 'All Reports' : f}
@@ -459,14 +486,16 @@ const LiveMap = () => {
 
         {/* -------- MAP STYLE PICKER -------- */}
         {showStylePicker && (
-          <div className="absolute top-44 left-4 bg-white dark:bg-slate-800 p-2 rounded-lg shadow-xl z-10 min-w-[150px]">
-            <p className="text-xs font-semibold text-slate-500 px-3 py-1">Map Style</p>
+          <div className="absolute top-72 left-4 bg-white dark:bg-slate-800 p-2 rounded-lg shadow-xl z-10 min-w-[150px] border border-slate-200 dark:border-slate-700">
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 px-3 py-2 uppercase tracking-wider">Map Style</p>
             {["Standard", "Monochrome", "Hybrid", "Satellite"].map((style) => (
               <button
                 key={style}
                 onClick={() => { setMapStyle(style); setShowStylePicker(false); }}
-                className={`block w-full text-left px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-sm ${
-                  mapStyle === style ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : ''
+                className={`block w-full text-left px-3 py-2 rounded text-sm font-medium transition-all ${
+                  mapStyle === style 
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
                 {style}
@@ -477,33 +506,37 @@ const LiveMap = () => {
 
         {/* -------- ERROR MESSAGE -------- */}
         {error && (
-          <div className="absolute bottom-24 left-4 right-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg z-10">
-            {error}
-            <button onClick={fetchReports} className="ml-2 underline">Retry</button>
+          <div className="absolute bottom-24 left-4 right-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg z-10 border border-red-200 dark:border-red-900/50 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">{error}</span>
+              <button onClick={fetchReports} className="underline font-semibold hover:opacity-80">Retry</button>
+            </div>
           </div>
         )}
 
         {/* -------- SELECTED PIN CARD -------- */}
         {selectedPin && (
-          <div className="absolute bottom-6 left-4 right-4 md:left-6 md:right-6 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xl z-20 border border-slate-200 dark:border-slate-700">
-            <div className="flex justify-between items-start">
+          <div className="absolute bottom-6 left-4 right-4 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-xl z-20 border border-slate-200 dark:border-slate-700">
+            <div className="flex justify-between items-start mb-3">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-2">
                   <span className="text-2xl">{getCategoryIcon(selectedPin.type)}</span>
-                  <h3 className="font-bold text-lg capitalize text-slate-900 dark:text-white">
-                    {selectedPin.type}
-                  </h3>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    selectedPin.status === 'Resolved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                    selectedPin.status === 'In Progress' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                    selectedPin.priority === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                  }`}>
-                    {selectedPin.status}
-                  </span>
+                  <div>
+                    <h3 className="font-bold capitalize text-slate-900 dark:text-white">
+                      {selectedPin.type}
+                    </h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold inline-block mt-0.5 ${
+                      selectedPin.status === 'Resolved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                      selectedPin.status === 'In Progress' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                      selectedPin.priority === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                      'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    }`}>
+                      {selectedPin.status}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                  <MapPin size={14} />
+                <p className="text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                  <MapPin size={14} className="text-blue-600 dark:text-blue-400" />
                   {selectedPin.location.address}
                 </p>
                 {selectedPin.description && (
@@ -512,7 +545,7 @@ const LiveMap = () => {
                   </p>
                 )}
                 {selectedPin.clusterCount && (
-                  <p className="text-sm text-orange-600 mt-2">
+                  <p className="text-sm text-orange-600 dark:text-orange-400 mt-2 font-semibold">
                     +{selectedPin.clusterCount - 1} more reports nearby
                   </p>
                 )}
@@ -520,16 +553,16 @@ const LiveMap = () => {
 
               <button 
                 onClick={() => setSelectedPin(null)}
-                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-all"
               >
-                <X size={20} />
+                <X size={18} className="text-slate-600 dark:text-slate-400" />
               </button>
             </div>
 
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={() => navigate(`/report/${selectedPin.id}`)}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all text-sm"
               >
                 View Details
               </button>
@@ -538,9 +571,9 @@ const LiveMap = () => {
                   const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedPin.location.lat},${selectedPin.location.lng}`;
                   window.open(url, '_blank');
                 }}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg font-semibold transition-all flex items-center gap-2 text-slate-700 dark:text-slate-300 text-sm"
               >
-                <Navigation size={16} />
+                <Navigation size={14} />
                 Navigate
               </button>
             </div>
@@ -548,13 +581,15 @@ const LiveMap = () => {
         )}
 
         {/* -------- LEGEND -------- */}
-        <div className="absolute bottom-6 right-4 bg-white dark:bg-slate-800 p-3 rounded-lg shadow z-10 text-xs hidden md:block">
-          <p className="font-semibold mb-2">Legend</p>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div> Critical/SOS</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div> Pending</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500"></div> In Progress</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500"></div> Resolved</div>
+        <div className="absolute bottom-6 right-4 bg-white dark:bg-slate-800 rounded-xl shadow-xl z-10 text-xs hidden md:block border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+            <p className="font-bold text-slate-900 dark:text-white">Legend</p>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-red-500 shadow-sm"></div> <span className="text-slate-700 dark:text-slate-300">Critical/SOS</span></div>
+            <div className="flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></div> <span className="text-slate-700 dark:text-slate-300">Pending</span></div>
+            <div className="flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm"></div> <span className="text-slate-700 dark:text-slate-300">In Progress</span></div>
+            <div className="flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-green-500 shadow-sm"></div> <span className="text-slate-700 dark:text-slate-300">Resolved</span></div>
           </div>
         </div>
       </div>
@@ -563,11 +598,11 @@ const LiveMap = () => {
 };
 
 const Stat = ({ icon, value, label }) => (
-  <div className="bg-white dark:bg-slate-800 px-4 py-3 rounded-lg shadow flex items-center gap-3">
-    {icon}
+  <div className="bg-white dark:bg-slate-800 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 border border-slate-200 dark:border-slate-700">
+    <div className="text-lg">{icon}</div>
     <div>
-      <div className="text-xl font-bold text-slate-900 dark:text-white">{value}</div>
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-lg font-bold text-slate-900 dark:text-white">{value}</div>
+      <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">{label}</div>
     </div>
   </div>
 );
