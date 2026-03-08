@@ -16,30 +16,32 @@ const Dashboard = () => {
 
     React.useEffect(() => {
         const fetchReports = async () => {
-            if (!user?.sub) {
+            const userId = user?.sub || localStorage.getItem("uid");
+            if (!userId) {
                 setLoading(false);
                 return;
             }
             try {
-                const res = await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/my-reports/${user.sub}`);
+                const res = await fetch(`${import.meta.env.VITE_AWS_API_GATEWAY_URL}/api/reports/user/${userId}`);
                 const data = await res.json();
-                const reportsList = Array.isArray(data) ? data : [];
+                console.log("Dashboard API Response:", data);
+                const reportsList = data.reports ? data.reports : (Array.isArray(data) ? data : []);
                 setReports(reportsList);
 
                 // Calculate stats
                 const total = reportsList.length;
                 const pending = reportsList.filter(r => r.status === 'Pending' || r.status === 'In Progress').length;
-                const resolved = reportsList.filter(r => r.status === 'Resolved').length;
+                const resolved = reportsList.filter(r => r.status === 'Resolved' || r.status === 'Accepted').length;
                 setStats({ total, pending, resolved, points: resolved * 100 });
 
                 // Get recent reports (last 5)
                 const recent = reportsList
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .sort((a, b) => new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp))
                     .slice(0, 5)
                     .map(r => ({
-                        type: r.category || r.issueType || 'issue',
-                        address: r.location?.address || r.address || 'Unknown location',
-                        time: new Date(r.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+                        type: r.type || r.category || r.issueType || 'issue',
+                        address: r.location?.address || r.address || `${r.location?.lat?.toFixed(4)}, ${r.location?.lng?.toFixed(4)}` || 'Unknown location',
+                        time: new Date(r.createdAt || r.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
                         status: r.status
                     }));
                 setRecentReports(recent);
@@ -52,11 +54,11 @@ const Dashboard = () => {
                 oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
                 
                 reportsList.forEach(report => {
-                    const reportDate = new Date(report.createdAt);
+                    const reportDate = new Date(report.createdAt || report.timestamp);
                     if (reportDate >= oneWeekAgo) {
                         const dayIndex = reportDate.getDay();
                         weekData[dayIndex].reports += 1;
-                        if (report.status === 'Resolved') {
+                        if (report.status === 'Resolved' || report.status === 'Accepted') {
                             weekData[dayIndex].resolved += 1;
                         }
                     }
