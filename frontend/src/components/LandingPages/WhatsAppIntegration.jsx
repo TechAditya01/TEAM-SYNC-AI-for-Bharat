@@ -1,8 +1,32 @@
-import React from 'react';
+import { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { MessageCircle, Camera, MapPin, Check, Send, Download } from 'lucide-react';
 
 export default function WhatsAppIntegration() {
     const { t } = useLanguage();
+    const [downloading, setDownloading] = useState(false);
+
+    // Get WhatsApp bot number from environment variable
+    const WHATSAPP_NUMBER = import.meta.env.VITE_GREEN_API_PHONE || "918872825483";
+    const DEMO_MESSAGE = import.meta.env.VITE_WHATSAPP_DEMO_MESSAGE || "Hi, I want to try reporting a civic issue";
+    
+    const openWhatsAppChat = () => {
+        const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(DEMO_MESSAGE)}`;
+        window.open(url, '_blank');
+    };
+
+    const downloadTestImage = () => {
+        setDownloading(true);
+        // Download the test image from public folder
+        const link = document.createElement('a');
+        link.href = '/3.jpeg'; // Using the garbage/civic issue image
+        link.download = 'test-civic-issue.jpeg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => setDownloading(false), 1000);
+    };
 
     return (
         <section
@@ -77,13 +101,56 @@ export default function WhatsAppIntegration() {
                             ))}
                         </div>
 
-                        {/* CTA */}
-                        <a
-                            href="#"
-                            className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-bold shadow-xl hover:shadow-green-500/40 transition"
-                        >
-                            💬 {t('whatsappCta')}
-                        </a>
+                        {/* CTA Buttons */}
+                        <div className="flex flex-wrap gap-4 mb-8">
+                            <button
+                                onClick={openWhatsAppChat}
+                                className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-[#25D366] hover:bg-[#128C7E] text-white font-bold shadow-xl hover:scale-105 transition-all"
+                            >
+                                <MessageCircle size={24} />
+                                {t('whatsappCta') || 'Try Demo on WhatsApp'}
+                            </button>
+                            
+                            <button
+                                onClick={downloadTestImage}
+                                disabled={downloading}
+                                className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold border-2 border-green-500 hover:bg-green-50 dark:hover:bg-slate-700 transition-all disabled:opacity-50"
+                            >
+                                <Download size={20} />
+                                {downloading ? 'Downloading...' : 'Download Test Image'}
+                            </button>
+                        </div>
+
+                        {/* Bot Status Badge */}
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="px-4 py-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold flex items-center gap-2">
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                Bot Online • +{WHATSAPP_NUMBER}
+                            </div>
+                        </div>
+
+                        {/* Steps */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                            <StepItem icon={<Send size={18} />} label="1. Say Hi" />
+                            <StepItem icon={<Camera size={18} />} label="2. Send Photo" />
+                            <StepItem icon={<MapPin size={18} />} label="3. Share Location" />
+                            <StepItem icon={<Check size={18} />} label="4. Get Ticket" />
+                        </div>
+
+                        {/* Instructions */}
+                        <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 border border-blue-200 dark:border-blue-800">
+                            <p className="text-sm text-blue-900 dark:text-blue-300 font-semibold mb-3 flex items-center gap-2">
+                                🎯 How to test the bot:
+                            </p>
+                            <ol className="text-sm text-blue-800 dark:text-blue-400 space-y-2 list-decimal list-inside">
+                                <li>Click <strong>"Try Demo on WhatsApp"</strong> to open chat with bot</li>
+                                <li>Click <strong>"Download Test Image"</strong> to get a civic issue photo</li>
+                                <li>Send the downloaded image to the bot on WhatsApp</li>
+                                <li>Bot will analyze with AI and ask for your location</li>
+                                <li>Share your location to complete the report</li>
+                                <li>Receive confirmation with ticket ID</li>
+                            </ol>
+                        </div>
                     </div>
 
                     {/* RIGHT PHONE MOCKUP */}
@@ -137,3 +204,13 @@ export default function WhatsAppIntegration() {
         </section>
     );
 }
+
+// Step Item Component
+const StepItem = ({ icon, label }) => (
+    <div className="flex flex-col items-center text-center gap-2">
+        <div className="w-12 h-12 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 shadow-md">
+            {icon}
+        </div>
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{label}</span>
+    </div>
+);
